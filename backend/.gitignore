@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# VFIE Data
+vfie/data/risk_results.json
+
+# IDE
+.vscode/
+.idea/

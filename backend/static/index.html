@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinRisk - Vulnerability Financial Impact Engine</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+    
+    <div class="container">
+        <header>
+            <h1>FinRisk Engine</h1>
+            <p>Vulnerability Financial Impact Dashboard</p>
+        </header>
+
+        <div class="dashboard">
+            <!-- Input Form -->
+            <div class="glass-panel form-panel">
+                <h2>Scan Repository</h2>
+                <form id="scanForm">
+                    <div class="form-group">
+                        <label>GitHub Repo URL</label>
+                        <input type="url" id="repoUrl" required placeholder="https://github.com/shadil-rayyan/finrisk.git">
+                    </div>
+                    <div class="form-group">
+                        <label>Branch</label>
+                        <input type="text" id="repoBranch" value="main">
+                    </div>
+                    
+                    <h3>Company Context</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Company Name</label>
+                            <input type="text" id="companyName" value="Acme Corp" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Industry</label>
+                            <select id="industry">
+                                <option value="technology">Technology</option>
+                                <option value="finance">Finance</option>
+                                <option value="healthcare">Healthcare</option>
+                                <option value="retail">Retail</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Company Size</label>
+                            <select id="companySize">
+                                <option value="startup">Startup</option>
+                                <option value="mid_size" selected>Mid-size</option>
+                                <option value="enterprise">Enterprise</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Annual Revenue ($)</label>
+                            <input type="number" id="annualRevenue" value="12000000">
+                        </div>
+                        <div class="form-group">
+                            <label>Active Users</label>
+                            <input type="number" id="activeUsers" value="20000">
+                        </div>
+                        <div class="form-group">
+                            <label>ARPU ($/mo)</label>
+                            <input type="number" id="arpu" value="50">
+                        </div>
+                        <div class="form-group">
+                            <label>Records Stored</label>
+                            <input type="number" id="recordsStored" value="200000">
+                        </div>
+                        <div class="form-group">
+                            <label>Exposure</label>
+                            <select id="exposure">
+                                <option value="public" selected>Public</option>
+                                <option value="internal">Internal</option>
+                                <option value="private">Private</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary" id="scanBtn">Run Financial Risk Scan</button>
+                </form>
+
+                <div id="loadingState" class="hidden">
+                    <div class="spinner"></div>
+                    <p id="loadingText" style="color:var(--text-muted)">Cloning repository & running Semgrep...</p>
+                </div>
+            </div>
+
+            <!-- Results area -->
+            <div class="glass-panel results-panel hidden" id="resultsPanel">
+                <h2>Risk Overview</h2>
+                <div class="summary-cards">
+                    <div class="card bg-danger">
+                        <h4>Total Expected Loss</h4>
+                        <div class="value" id="totalLoss">$0</div>
+                    </div>
+                    <div class="card">
+                        <h4>Vulnerabilities Found</h4>
+                        <div class="value" id="vulnCount">0</div>
+                    </div>
+                    <div class="card">
+                        <h4>Critical / High</h4>
+                        <div class="value" id="criticalCount">0</div>
+                    </div>
+                </div>
+
+                <h3>Vulnerability Breakdown</h3>
+                <div class="vuln-list" id="vulnList">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

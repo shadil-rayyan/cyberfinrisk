@@ -1,0 +1,77 @@
+{
+    "SQL_INJECTION": {
+        "data_exfiltration": true,
+        "typical_fix_hours": 6,
+        "severity_default": "critical"
+    },
+    "XSS": {
+        "data_exfiltration": false,
+        "typical_fix_hours": 3,
+        "severity_default": "high"
+    },
+    "AUTH_BYPASS": {
+        "data_exfiltration": true,
+        "typical_fix_hours": 12,
+        "severity_default": "critical"
+    },
+    "INSECURE_DESERIALIZATION": {
+        "data_exfiltration": true,
+        "typical_fix_hours": 16,
+        "severity_default": "critical"
+    },
+    "SSRF": {
+        "data_exfiltration": true,
+        "typical_fix_hours": 8,
+        "severity_default": "high"
+    },
+    "IDOR": {
+        "data_exfiltration": true,
+        "typical_fix_hours": 5,
+        "severity_default": "high"
+    },
+    "RCE": {
+        "data_exfiltration": true,
+        "typical_fix_hours": 20,
+        "severity_default": "critical"
+    },
+    "PATH_TRAVERSAL": {
+        "data_exfiltration": true,
+        "typical_fix_hours": 4,
+        "severity_default": "high"
+    },
+    "HARDCODED_CREDENTIALS": {
+        "data_exfiltration": true,
+        "typical_fix_hours": 2,
+        "severity_default": "critical"
+    },
+    "CSRF": {
+        "data_exfiltration": false,
+        "typical_fix_hours": 4,
+        "severity_default": "medium"
+    },
+    "OPEN_REDIRECT": {
+        "data_exfiltration": false,
+        "typical_fix_hours": 2,
+        "severity_default": "medium"
+    },
+    "COMMAND_INJECTION": {
+        "data_exfiltration": true,
+        "typical_fix_hours": 8,
+        "severity_default": "critical"
+    },
+    "WEAK_CRYPTO": {
+        "data_exfiltration": true,
+        "typical_fix_hours": 6,
+        "severity_default": "high"
+    },
+    "INSECURE_RANDOM": {
+        "data_exfiltration": false,
+        "typical_fix_hours": 2,
+        "severity_default": "medium"
+    },
+    "UNKNOWN": {
+        "data_exfiltration": false,
+        "typical_fix_hours": 4,
+        "severity_default": "medium"
+    }
+}

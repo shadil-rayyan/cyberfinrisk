@@ -1,0 +1,1040 @@
+# AGENT.md — Vulnerability Financial Impact Engine (VFIE)
+# Build this exactly as specified. Every section is actionable.
+
+---
+
+## WHAT YOU ARE BUILDING
+
+A backend system that:
+1. Accepts a GitHub repo URL + company context
+2. Scans it for vulnerabilities using Semgrep
+3. Runs each vuln through a financial risk engine
+4. Outputs ranked vulnerabilities with expected dollar loss
+5. Generates plain-English explanations for management
+
+Stack: Python 3.11+, FastAPI, Semgrep CLI, JSON knowledge base, no database needed for MVP.
+
+---
+
+## STEP 0 — INSTALL DEPENDENCIES
+
+```bash
+pip install fastapi uvicorn semgrep gitpython httpx pydantic
+```
+
+Also requires Semgrep CLI:
+```bash
+pip install semgrep
+```
+
+---
+
+## STEP 1 — PROJECT STRUCTURE
+
+Create this exact directory layout:
+
+```
+vfie/
+├── main.py                          # FastAPI entry point
+├── AGENT.md                         # this file
+├── knowledge_base/
+│   ├── bug_taxonomy.json
+│   ├── exploit_probability.json
+│   ├── breach_costs.json
+│   ├── regulatory_models.json
+│   └── downtime_estimates.json
+├── engine/
+│   ├── __init__.py
+│   ├── scanner.py                   # Semgrep runner + parser
+│   ├── classifier.py                # Maps semgrep output → bug types
+│   ├── probability_model.py         # P(exploit) calculation
+│   ├── impact_model.py              # Full financial impact
+│   ├── expected_loss.py             # EL = P × Impact
+│   ├── ranker.py                    # Priority score sorting
+│   └── explainer.py                 # Plain-English generation
+├── models/
+│   ├── __init__.py
+│   ├── company.py                   # CompanyContext Pydantic model
+│   ├── vulnerability.py             # Vulnerability Pydantic model
+│   └── risk_result.py               # RiskResult Pydantic model
+└── data/
+    └── .gitkeep                     # temp scan output goes here
+```
+
+---
+
+## STEP 2 — PYDANTIC MODELS
+
+### models/company.py
+
+```python
+from pydantic import BaseModel
+from typing import List, Optional
+
+class CompanyContext(BaseModel):
+    company_name: str
+    industry: str                          # "finance", "healthcare", "technology", "retail"
+    annual_revenue: float                  # in USD
+    active_users: int
+    arpu: float                            # average revenue per user per month
+    engineer_hourly_cost: float            # default 80
+    infrastructure_type: str               # "cloud", "on_prem", "hybrid"
+    deployment_exposure: str               # "public", "internal", "private"
+    sensitive_data_types: List[str]        # ["PII", "financial", "health"]
+    regulatory_frameworks: List[str]       # ["GDPR", "PCI_DSS", "HIPAA"]
+    estimated_records_stored: int
+    estimated_downtime_cost_per_hour: Optional[float] = None  # auto-computed if None
+    company_size: str                      # "startup", "mid_size", "enterprise"
+```
+
+### models/vulnerability.py
+
+```python
+from pydantic import BaseModel
+from typing import Optional
+
+class Vulnerability(BaseModel):
+    id: str
+    bug_type: str                  # e.g. "SQL_INJECTION", "XSS", "AUTH_BYPASS"
+    file: str
+    line: int
+    severity: str                  # "critical", "high", "medium", "low"
+    exposure: str                  # "PUBLIC", "INTERNAL", "PRIVATE"
+    fix_effort_hours: float        # estimated by classifier
+    raw_semgrep_rule: Optional[str] = None
+    description: Optional[str] = None
+```
+
+### models/risk_result.py
+
+```python
+from pydantic import BaseModel
+from typing import Dict
+
+class ImpactBreakdown(BaseModel):
+    data_breach_cost: float
+    incident_response_cost: float
+    downtime_cost: float
+    regulatory_penalty: float
+    reputation_damage: float
+
+class RiskResult(BaseModel):
+    vulnerability_id: str
+    bug_type: str
+    file: str
+    line: int
+    severity: str
+    exposure: str
+    probability_of_exploit: float
+    impact_breakdown: ImpactBreakdown
+    total_impact: float
+    expected_loss: float
+    fix_effort_hours: float
+    priority_score: float          # expected_loss / fix_effort_hours
+    explanation: str
+```
+
+---
+
+## STEP 3 — KNOWLEDGE BASE FILES
+
+Create these JSON files exactly.
+
+### knowledge_base/bug_taxonomy.json
+
+```json
+{
+  "SQL_INJECTION": {
+    "category": "injection",
+    "confidentiality_impact": "high",
+    "integrity_impact": "high",
+    "availability_impact": "medium",
+    "data_exfiltration": true,
+    "lateral_movement_possible": true,
+    "typical_fix_hours": 6,
+    "severity_default": "critical"
+  },
+  "XSS": {
+    "category": "injection",
+    "confidentiality_impact": "medium",
+    "integrity_impact": "medium",
+    "availability_impact": "low",
+    "data_exfiltration": false,
+    "lateral_movement_possible": false,
+    "typical_fix_hours": 3,
+    "severity_default": "high"
+  },
+  "AUTH_BYPASS": {
+    "category": "authentication",
+    "confidentiality_impact": "high",
+    "integrity_impact": "high",
+    "availability_impact": "low",
+    "data_exfiltration": true,
+    "lateral_movement_possible": true,
+    "typical_fix_hours": 12,
+    "severity_default": "critical"
+  },
+  "INSECURE_DESERIALIZATION": {
+    "category": "injection",
+    "confidentiality_impact": "high",
+    "integrity_impact": "high",
+    "availability_impact": "high",
+    "data_exfiltration": true,
+    "lateral_movement_possible": true,
+    "typical_fix_hours": 16,
+    "severity_default": "critical"
+  },
+  "SSRF": {
+    "category": "server_side",
+    "confidentiality_impact": "high",
+    "integrity_impact": "medium",
+    "availability_impact": "low",
+    "data_exfiltration": true,
+    "lateral_movement_possible": true,
+    "typical_fix_hours": 8,
+    "severity_default": "high"
+  },
+  "IDOR": {
+    "category": "access_control",
+    "confidentiality_impact": "high",
+    "integrity_impact": "medium",
+    "availability_impact": "low",
+    "data_exfiltration": true,
+    "lateral_movement_possible": false,
+    "typical_fix_hours": 5,
+    "severity_default": "high"
+  },
+  "RCE": {
+    "category": "injection",
+    "confidentiality_impact": "high",
+    "integrity_impact": "high",
+    "availability_impact": "high",
+    "data_exfiltration": true,
+    "lateral_movement_possible": true,
+    "typical_fix_hours": 20,
+    "severity_default": "critical"
+  },
+  "PATH_TRAVERSAL": {
+    "category": "file_access",
+    "confidentiality_impact": "high",
+    "integrity_impact": "medium",
+    "availability_impact": "low",
+    "data_exfiltration": true,
+    "lateral_movement_possible": false,
+    "typical_fix_hours": 4,
+    "severity_default": "high"
+  },
+  "HARDCODED_CREDENTIALS": {
+    "category": "secrets",
+    "confidentiality_impact": "high",
+    "integrity_impact": "high",
+    "availability_impact": "medium",
+    "data_exfiltration": true,
+    "lateral_movement_possible": true,
+    "typical_fix_hours": 2,
+    "severity_default": "critical"
+  },
+  "CSRF": {
+    "category": "session",
+    "confidentiality_impact": "low",
+    "integrity_impact": "high",
+    "availability_impact": "low",
+    "data_exfiltration": false,
+    "lateral_movement_possible": false,
+    "typical_fix_hours": 4,
+    "severity_default": "medium"
+  },
+  "OPEN_REDIRECT": {
+    "category": "url",
+    "confidentiality_impact": "medium",
+    "integrity_impact": "low",
+    "availability_impact": "low",
+    "data_exfiltration": false,
+    "lateral_movement_possible": false,
+    "typical_fix_hours": 2,
+    "severity_default": "medium"
+  },
+  "XXE": {
+    "category": "injection",
+    "confidentiality_impact": "high",
+    "integrity_impact": "medium",
+    "availability_impact": "medium",
+    "data_exfiltration": true,
+    "lateral_movement_possible": false,
+    "typical_fix_hours": 6,
+    "severity_default": "high"
+  },
+  "COMMAND_INJECTION": {
+    "category": "injection",
+    "confidentiality_impact": "high",
+    "integrity_impact": "high",
+    "availability_impact": "high",
+    "data_exfiltration": true,
+    "lateral_movement_possible": true,
+    "typical_fix_hours": 8,
+    "severity_default": "critical"
+  },
+  "WEAK_CRYPTO": {
+    "category": "cryptography",
+    "confidentiality_impact": "high",
+    "integrity_impact": "medium",
+    "availability_impact": "low",
+    "data_exfiltration": true,
+    "lateral_movement_possible": false,
+    "typical_fix_hours": 6,
+    "severity_default": "high"
+  },
+  "INSECURE_RANDOM": {
+    "category": "cryptography",
+    "confidentiality_impact": "medium",
+    "integrity_impact": "high",
+    "availability_impact": "low",
+    "data_exfiltration": false,
+    "lateral_movement_possible": false,
+    "typical_fix_hours": 2,
+    "severity_default": "medium"
+  }
+}
+```
+
+### knowledge_base/exploit_probability.json
+
+```json
+{
+  "SQL_INJECTION":             { "PUBLIC": 0.22, "INTERNAL": 0.06, "PRIVATE": 0.01 },
+  "XSS":                       { "PUBLIC": 0.18, "INTERNAL": 0.05, "PRIVATE": 0.01 },
+  "AUTH_BYPASS":               { "PUBLIC": 0.15, "INTERNAL": 0.05, "PRIVATE": 0.02 },
+  "INSECURE_DESERIALIZATION":  { "PUBLIC": 0.12, "INTERNAL": 0.04, "PRIVATE": 0.01 },
+  "SSRF":                      { "PUBLIC": 0.14, "INTERNAL": 0.05, "PRIVATE": 0.01 },
+  "IDOR":                      { "PUBLIC": 0.20, "INTERNAL": 0.08, "PRIVATE": 0.02 },
+  "RCE":                       { "PUBLIC": 0.10, "INTERNAL": 0.03, "PRIVATE": 0.01 },
+  "PATH_TRAVERSAL":            { "PUBLIC": 0.16, "INTERNAL": 0.05, "PRIVATE": 0.01 },
+  "HARDCODED_CREDENTIALS":     { "PUBLIC": 0.25, "INTERNAL": 0.10, "PRIVATE": 0.03 },
+  "CSRF":                      { "PUBLIC": 0.12, "INTERNAL": 0.03, "PRIVATE": 0.01 },
+  "OPEN_REDIRECT":             { "PUBLIC": 0.10, "INTERNAL": 0.02, "PRIVATE": 0.005 },
+  "XXE":                       { "PUBLIC": 0.10, "INTERNAL": 0.03, "PRIVATE": 0.01 },
+  "COMMAND_INJECTION":         { "PUBLIC": 0.12, "INTERNAL": 0.04, "PRIVATE": 0.01 },
+  "WEAK_CRYPTO":               { "PUBLIC": 0.08, "INTERNAL": 0.03, "PRIVATE": 0.01 },
+  "INSECURE_RANDOM":           { "PUBLIC": 0.06, "INTERNAL": 0.02, "PRIVATE": 0.005 },
+  "UNKNOWN":                   { "PUBLIC": 0.05, "INTERNAL": 0.02, "PRIVATE": 0.005 }
+}
+```
+
+### knowledge_base/breach_costs.json
+
+```json
+{
+  "cost_per_record_by_industry": {
+    "finance":     250,
+    "healthcare":  400,
+    "technology":  150,
+    "retail":      130,
+    "education":   100,
+    "default":     165
+  },
+  "incident_response_cost": {
+    "startup":    30000,
+    "mid_size":   100000,
+    "enterprise": 500000
+  },
+  "downtime_cost_per_hour": {
+    "startup":    2000,
+    "mid_size":   12000,
+    "enterprise": 60000
+  },
+  "churn_rate_after_breach": {
+    "low_sensitivity":    0.02,
+    "medium_sensitivity": 0.05,
+    "high_sensitivity":   0.10
+  },
+  "reputation_damage_multiplier": 1.15
+}
+```
+
+### knowledge_base/regulatory_models.json
+
+```json
+{
+  "GDPR": {
+    "fine_percentage_of_arr": 0.04,
+    "max_fine_usd": 20000000,
+    "applies_if": ["EU_users", "PII"]
+  },
+  "PCI_DSS": {
+    "min_fine": 50000,
+    "max_fine": 500000,
+    "avg_fine": 250000,
+    "applies_if": ["financial", "payment_cards"]
+  },
+  "HIPAA": {
+    "min_fine": 100,
+    "max_fine": 50000,
+    "max_annual": 1900000,
+    "applies_if": ["health"]
+  },
+  "CCPA": {
+    "per_record_intentional": 750,
+    "per_record_unintentional": 100,
+    "max_fine": 7500,
+    "applies_if": ["PII", "California_users"]
+  }
+}
+```
+
+### knowledge_base/downtime_estimates.json
+
+```json
+{
+  "downtime_hours_by_bug_type": {
+    "SQL_INJECTION":            4,
+    "AUTH_BYPASS":              6,
+    "RCE":                      8,
+    "COMMAND_INJECTION":        6,
+    "INSECURE_DESERIALIZATION": 5,
+    "SSRF":                     3,
+    "HARDCODED_CREDENTIALS":    4,
+    "XSS":                      1,
+    "IDOR":                     2,
+    "PATH_TRAVERSAL":           2,
+    "XXE":                      2,
+    "CSRF":                     1,
+    "WEAK_CRYPTO":              2,
+    "INSECURE_RANDOM":          1,
+    "OPEN_REDIRECT":            0.5,
+    "UNKNOWN":                  2
+  }
+}
+```
+
+---
+
+## STEP 4 — ENGINE MODULES
+
+### engine/scanner.py
+
+```python
+import subprocess
+import json
+import os
+import tempfile
+from typing import List, Dict, Any
+import git
+
+
+def clone_repo(repo_url: str, branch: str = "main") -> str:
+    """Clone repo to temp dir, return path."""
+    tmp_dir = tempfile.mkdtemp()
+    git.Repo.clone_from(repo_url, tmp_dir, branch=branch, depth=1)
+    return tmp_dir
+
+
+def run_semgrep(repo_path: str) -> List[Dict[str, Any]]:
+    """Run semgrep with security ruleset, return raw findings."""
+    result = subprocess.run(
+        [
+            "semgrep",
+            "--config", "p/security-audit",
+            "--config", "p/owasp-top-ten",
+            "--json",
+            "--quiet",
+            repo_path
+        ],
+        capture_output=True,
+        text=True,
+        timeout=300
+    )
+    if result.returncode not in (0, 1):
+        raise RuntimeError(f"Semgrep failed: {result.stderr}")
+    
+    try:
+        data = json.loads(result.stdout)
+        return data.get("results", [])
+    except json.JSONDecodeError:
+        return []
+
+
+def parse_semgrep_findings(findings: List[Dict], exposure: str) -> List[Dict]:
+    """Normalize semgrep output into our internal schema."""
+    parsed = []
+    for i, f in enumerate(findings):
+        parsed.append({
+            "id": f"VULN_{i+1:03d}",
+            "raw_rule_id": f.get("check_id", "unknown"),
+            "file": f.get("path", "unknown"),
+            "line": f.get("start", {}).get("line", 0),
+            "message": f.get("extra", {}).get("message", ""),
+            "severity": f.get("extra", {}).get("severity", "WARNING").lower(),
+            "exposure": exposure.upper()
+        })
+    return parsed
+```
+
+### engine/classifier.py
+
+```python
+import json
+from typing import Dict
+
+
+def load_taxonomy() -> Dict:
+    with open("knowledge_base/bug_taxonomy.json") as f:
+        return json.load(f)
+
+
+# Map semgrep rule ID fragments → our bug type keys
+RULE_MAPPING = {
+    "sql":              "SQL_INJECTION",
+    "sqli":             "SQL_INJECTION",
+    "injection":        "SQL_INJECTION",
+    "xss":              "XSS",
+    "cross-site":       "XSS",
+    "auth":             "AUTH_BYPASS",
+    "authentication":   "AUTH_BYPASS",
+    "deserializ":       "INSECURE_DESERIALIZATION",
+    "pickle":           "INSECURE_DESERIALIZATION",
+    "ssrf":             "SSRF",
+    "server-side":      "SSRF",
+    "idor":             "IDOR",
+    "rce":              "RCE",
+    "remote-code":      "RCE",
+    "path-traversal":   "PATH_TRAVERSAL",
+    "directory":        "PATH_TRAVERSAL",
+    "hardcoded":        "HARDCODED_CREDENTIALS",
+    "secret":           "HARDCODED_CREDENTIALS",
+    "password":         "HARDCODED_CREDENTIALS",
+    "csrf":             "CSRF",
+    "redirect":         "OPEN_REDIRECT",
+    "xxe":              "XXE",
+    "xml":              "XXE",
+    "command":          "COMMAND_INJECTION",
+    "exec":             "COMMAND_INJECTION",
+    "subprocess":       "COMMAND_INJECTION",
+    "crypto":           "WEAK_CRYPTO",
+    "md5":              "WEAK_CRYPTO",
+    "sha1":             "WEAK_CRYPTO",
+    "random":           "INSECURE_RANDOM",
+}
+
+
+def classify_bug(raw_rule_id: str, message: str) -> str:
+    """Map semgrep rule ID to our bug type. Falls back to UNKNOWN."""
+    combined = (raw_rule_id + " " + message).lower()
+    for keyword, bug_type in RULE_MAPPING.items():
+        if keyword in combined:
+            return bug_type
+    return "UNKNOWN"
+
+
+def get_fix_effort(bug_type: str, taxonomy: Dict) -> float:
+    """Return typical fix hours for this bug type."""
+    entry = taxonomy.get(bug_type, {})
+    return entry.get("typical_fix_hours", 4)
+```
+
+### engine/probability_model.py
+
+```python
+import json
+from typing import Dict
+
+
+def load_probabilities() -> Dict:
+    with open("knowledge_base/exploit_probability.json") as f:
+        return json.load(f)
+
+
+def get_probability(bug_type: str, exposure: str, probabilities: Dict) -> float:
+    """
+    Return P(exploit) for this bug type and exposure level.
+    Exposure: PUBLIC, INTERNAL, PRIVATE
+    """
+    bug_probs = probabilities.get(bug_type, probabilities["UNKNOWN"])
+    return bug_probs.get(exposure.upper(), 0.05)
+```
+
+### engine/impact_model.py
+
+```python
+import json
+from typing import Dict, Tuple
+from models.company import CompanyContext
+from models.risk_result import ImpactBreakdown
+
+
+def load_breach_costs() -> Dict:
+    with open("knowledge_base/breach_costs.json") as f:
+        return json.load(f)
+
+
+def load_regulatory_models() -> Dict:
+    with open("knowledge_base/regulatory_models.json") as f:
+        return json.load(f)
+
+
+def load_downtime_estimates() -> Dict:
+    with open("knowledge_base/downtime_estimates.json") as f:
+        return json.load(f)
+
+
+def compute_data_breach_cost(company: CompanyContext, bug_type: str, breach_costs: Dict) -> float:
+    """Records exposed × cost per record (industry-adjusted)."""
+    taxonomy_raw = open("knowledge_base/bug_taxonomy.json").read()
+    taxonomy = json.loads(taxonomy_raw)
+    bug_info = taxonomy.get(bug_type, {})
+    
+    # Only apply breach cost if this bug can exfiltrate data
+    if not bug_info.get("data_exfiltration", False):
+        return 0.0
+    
+    industry = company.industry.lower()
+    cost_per_record = breach_costs["cost_per_record_by_industry"].get(
+        industry, breach_costs["cost_per_record_by_industry"]["default"]
+    )
+    
+    # Assume worst case: 20% of records exposed
+    records_exposed = int(company.estimated_records_stored * 0.20)
+    return records_exposed * cost_per_record
+
+
+def compute_incident_response_cost(company: CompanyContext, breach_costs: Dict) -> float:
+    return breach_costs["incident_response_cost"].get(company.company_size, 100000)
+
+
+def compute_downtime_cost(company: CompanyContext, bug_type: str, downtime_estimates: Dict) -> float:
+    downtime_hours = downtime_estimates["downtime_hours_by_bug_type"].get(bug_type, 2)
+    
+    # Use provided value or fall back to lookup table
+    if company.estimated_downtime_cost_per_hour:
+        cost_per_hour = company.estimated_downtime_cost_per_hour
+    else:
+        breach_costs = load_breach_costs()
+        cost_per_hour = breach_costs["downtime_cost_per_hour"].get(
+            company.company_size, 12000
+        )
+    
+    return downtime_hours * cost_per_hour
+
+
+def compute_regulatory_penalty(company: CompanyContext, reg_models: Dict) -> float:
+    """Apply applicable regulatory fines based on frameworks + data types."""
+    total_fine = 0.0
+    arr = company.annual_revenue
+    frameworks = [r.upper() for r in company.regulatory_frameworks]
+    data_types = [d.upper() for d in company.sensitive_data_types]
+    
+    if "GDPR" in frameworks or "PII" in data_types:
+        gdpr = reg_models["GDPR"]
+        fine = min(arr * gdpr["fine_percentage_of_arr"], gdpr["max_fine_usd"])
+        total_fine += fine
+    
+    if "PCI_DSS" in frameworks or "FINANCIAL" in data_types:
+        pci = reg_models["PCI_DSS"]
+        total_fine += pci["avg_fine"]
+    
+    if "HIPAA" in frameworks or "HEALTH" in data_types:
+        hipaa = reg_models["HIPAA"]
+        total_fine += hipaa["max_annual"]
+    
+    return total_fine
+
+
+def compute_reputation_damage(
+    company: CompanyContext,
+    breach_cost: float,
+    breach_costs: Dict
+) -> float:
+    """Churn-based reputation damage."""
+    data_types = [d.upper() for d in company.sensitive_data_types]
+    
+    if any(d in data_types for d in ["FINANCIAL", "HEALTH"]):
+        churn_rate = breach_costs["churn_rate_after_breach"]["high_sensitivity"]
+    elif "PII" in data_types:
+        churn_rate = breach_costs["churn_rate_after_breach"]["medium_sensitivity"]
+    else:
+        churn_rate = breach_costs["churn_rate_after_breach"]["low_sensitivity"]
+    
+    lost_users = company.active_users * churn_rate
+    lost_revenue = lost_users * company.arpu * 12  # annualized
+    return lost_revenue
+
+
+def compute_total_impact(
+    company: CompanyContext,
+    bug_type: str
+) -> Tuple[ImpactBreakdown, float]:
+    """Run all impact components and return breakdown + total."""
+    breach_costs = load_breach_costs()
+    reg_models = load_regulatory_models()
+    downtime_estimates = load_downtime_estimates()
+    
+    data_breach = compute_data_breach_cost(company, bug_type, breach_costs)
+    incident_response = compute_incident_response_cost(company, breach_costs)
+    downtime = compute_downtime_cost(company, bug_type, downtime_estimates)
+    regulatory = compute_regulatory_penalty(company, reg_models)
+    reputation = compute_reputation_damage(company, data_breach, breach_costs)
+    
+    breakdown = ImpactBreakdown(
+        data_breach_cost=round(data_breach, 2),
+        incident_response_cost=round(incident_response, 2),
+        downtime_cost=round(downtime, 2),
+        regulatory_penalty=round(regulatory, 2),
+        reputation_damage=round(reputation, 2)
+    )
+    
+    total = data_breach + incident_response + downtime + regulatory + reputation
+    return breakdown, round(total, 2)
+```
+
+### engine/expected_loss.py
+
+```python
+def compute_expected_loss(probability: float, total_impact: float) -> float:
+    """EL = P(exploit) × Total Financial Impact"""
+    return round(probability * total_impact, 2)
+
+
+def compute_priority_score(expected_loss: float, fix_effort_hours: float) -> float:
+    """Higher = fix this first. Measures $ saved per engineering hour."""
+    if fix_effort_hours <= 0:
+        return 0.0
+    return round(expected_loss / fix_effort_hours, 2)
+```
+
+### engine/ranker.py
+
+```python
+from typing import List
+from models.risk_result import RiskResult
+
+
+def rank_vulnerabilities(results: List[RiskResult]) -> List[RiskResult]:
+    """Sort by priority_score descending (highest ROI fixes first)."""
+    return sorted(results, key=lambda r: r.priority_score, reverse=True)
+```
+
+### engine/explainer.py
+
+```python
+from models.risk_result import RiskResult
+from models.company import CompanyContext
+
+
+def generate_explanation(result: RiskResult, company: CompanyContext) -> str:
+    """Generate plain-English management explanation for this vulnerability."""
+    
+    bug_label = result.bug_type.replace("_", " ").title()
+    prob_pct = round(result.probability_of_exploit * 100, 1)
+    impact_fmt = f"${result.total_impact:,.0f}"
+    el_fmt = f"${result.expected_loss:,.0f}"
+    
+    breakdown = result.impact_breakdown
+    
+    lines = [
+        f"A {bug_label} vulnerability was detected in {result.file} (line {result.line}).",
+        "",
+        f"RISK SUMMARY",
+        f"  Exploitation probability: {prob_pct}% — because this endpoint is {result.exposure.lower()} facing.",
+        f"  Estimated total financial impact if exploited: {impact_fmt}",
+        f"  Expected financial loss (probability-adjusted): {el_fmt}",
+        "",
+        f"IMPACT BREAKDOWN",
+    ]
+    
+    if breakdown.data_breach_cost > 0:
+        lines.append(f"  • Data breach cost:        ${breakdown.data_breach_cost:>12,.0f}")
+    lines.append(    f"  • Incident response:       ${breakdown.incident_response_cost:>12,.0f}")
+    lines.append(    f"  • Operational downtime:    ${breakdown.downtime_cost:>12,.0f}")
+    if breakdown.regulatory_penalty > 0:
+        lines.append(f"  • Regulatory penalties:    ${breakdown.regulatory_penalty:>12,.0f}")
+    if breakdown.reputation_damage > 0:
+        lines.append(f"  • Reputation / churn loss: ${breakdown.reputation_damage:>12,.0f}")
+    
+    lines += [
+        "",
+        f"REMEDIATION",
+        f"  Estimated fix effort: {result.fix_effort_hours} engineering hours",
+        f"  Priority score: {result.priority_score:,.0f} (${result.expected_loss:,.0f} saved per {result.fix_effort_hours}h of work)",
+        "",
+        f"RECOMMENDATION: {'CRITICAL — remediate immediately.' if result.priority_score > 50000 else 'HIGH — remediate this sprint.' if result.priority_score > 10000 else 'MEDIUM — schedule for next sprint.'}"
+    ]
+    
+    return "\n".join(lines)
+```
+
+---
+
+## STEP 5 — MAIN FASTAPI SERVER
+
+### main.py
+
+```python
+import json
+import os
+import shutil
+from typing import List, Optional
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from models.company import CompanyContext
+from models.vulnerability import Vulnerability
+from models.risk_result import RiskResult
+
+from engine.scanner import clone_repo, run_semgrep, parse_semgrep_findings
+from engine.classifier import classify_bug, get_fix_effort, load_taxonomy
+from engine.probability_model import load_probabilities, get_probability
+from engine.impact_model import compute_total_impact
+from engine.expected_loss import compute_expected_loss, compute_priority_score
+from engine.ranker import rank_vulnerabilities
+from engine.explainer import generate_explanation
+
+app = FastAPI(title="Vulnerability Financial Impact Engine", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+class ScanRequest(BaseModel):
+    repo_url: str
+    branch: str = "main"
+    company: CompanyContext
+
+
+class ManualScanRequest(BaseModel):
+    """For testing without cloning a repo — supply vulnerabilities directly."""
+    vulnerabilities: List[dict]
+    company: CompanyContext
+
+
+def run_risk_engine(parsed_findings: List[dict], company: CompanyContext) -> List[RiskResult]:
+    taxonomy = load_taxonomy()
+    probabilities = load_probabilities()
+    results = []
+    
+    for finding in parsed_findings:
+        bug_type = classify_bug(
+            finding.get("raw_rule_id", ""),
+            finding.get("message", "")
+        )
+        fix_effort = get_fix_effort(bug_type, taxonomy)
+        exposure = finding.get("exposure", company.deployment_exposure.upper())
+        
+        probability = get_probability(bug_type, exposure, probabilities)
+        impact_breakdown, total_impact = compute_total_impact(company, bug_type)
+        expected_loss = compute_expected_loss(probability, total_impact)
+        priority_score = compute_priority_score(expected_loss, fix_effort)
+        
+        result = RiskResult(
+            vulnerability_id=finding["id"],
+            bug_type=bug_type,
+            file=finding["file"],
+            line=finding["line"],
+            severity=finding.get("severity", "medium"),
+            exposure=exposure,
+            probability_of_exploit=probability,
+            impact_breakdown=impact_breakdown,
+            total_impact=total_impact,
+            expected_loss=expected_loss,
+            fix_effort_hours=fix_effort,
+            priority_score=priority_score,
+            explanation=""  # filled below
+        )
+        result.explanation = generate_explanation(result, company)
+        results.append(result)
+    
+    return rank_vulnerabilities(results)
+
+
+@app.post("/scan-repo", response_model=List[RiskResult])
+async def scan_repo(request: ScanRequest):
+    """Clone a GitHub repo, run Semgrep, compute financial risk for each finding."""
+    repo_path = None
+    try:
+        repo_path = clone_repo(request.repo_url, request.branch)
+        raw_findings = run_semgrep(repo_path)
+        parsed = parse_semgrep_findings(raw_findings, request.company.deployment_exposure)
+        results = run_risk_engine(parsed, request.company)
+        
+        # Save results
+        os.makedirs("data", exist_ok=True)
+        with open("data/risk_results.json", "w") as f:
+            json.dump([r.dict() for r in results], f, indent=2)
+        
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if repo_path and os.path.exists(repo_path):
+            shutil.rmtree(repo_path)
+
+
+@app.post("/analyze-manual", response_model=List[RiskResult])
+async def analyze_manual(request: ManualScanRequest):
+    """
+    Submit vulnerabilities manually (no repo needed).
+    Useful for testing and demo.
+    
+    Each vuln dict: { "id": "VULN_001", "raw_rule_id": "sqli", "file": "api.py",
+                      "line": 42, "message": "SQL injection", "severity": "high",
+                      "exposure": "PUBLIC" }
+    """
+    results = run_risk_engine(request.vulnerabilities, request.company)
+    return results
+
+
+@app.get("/risk-report")
+async def get_last_report():
+    """Return the last saved risk report."""
+    path = "data/risk_results.json"
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="No report found. Run /scan-repo first.")
+    with open(path) as f:
+        return json.load(f)
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "version": "1.0.0"}
+```
+
+---
+
+## STEP 6 — RUN IT
+
+```bash
+cd vfie
+uvicorn main:py --reload --port 8000
+```
+
+API docs auto-generated at: `http://localhost:8000/docs`
+
+---
+
+## STEP 7 — QUICK TEST (no real repo needed)
+
+Use `/analyze-manual` to test the full pipeline instantly.
+
+### Example curl:
+
+```bash
+curl -X POST http://localhost:8000/analyze-manual \
+  -H "Content-Type: application/json" \
+  -d '{
+    "vulnerabilities": [
+      {
+        "id": "VULN_001",
+        "raw_rule_id": "sql-injection",
+        "file": "payments/api.py",
+        "line": 102,
+        "message": "Unsanitized input passed to SQL query",
+        "severity": "high",
+        "exposure": "PUBLIC"
+      },
+      {
+        "id": "VULN_002",
+        "raw_rule_id": "hardcoded-password",
+        "file": "config/settings.py",
+        "line": 14,
+        "message": "Hardcoded API key found",
+        "severity": "critical",
+        "exposure": "PUBLIC"
+      },
+      {
+        "id": "VULN_003",
+        "raw_rule_id": "xss-reflected",
+        "file": "frontend/views.py",
+        "line": 55,
+        "message": "User input reflected without sanitization",
+        "severity": "medium",
+        "exposure": "PUBLIC"
+      }
+    ],
+    "company": {
+      "company_name": "PayFlow Inc",
+      "industry": "finance",
+      "annual_revenue": 12000000,
+      "active_users": 20000,
+      "arpu": 50,
+      "engineer_hourly_cost": 80,
+      "infrastructure_type": "cloud",
+      "deployment_exposure": "public",
+      "sensitive_data_types": ["PII", "financial"],
+      "regulatory_frameworks": ["GDPR", "PCI_DSS"],
+      "estimated_records_stored": 200000,
+      "estimated_downtime_cost_per_hour": 12000,
+      "company_size": "mid_size"
+    }
+  }'
+```
+
+---
+
+## STEP 8 — EXPECTED OUTPUT FORMAT
+
+Each result looks like:
+
+```json
+{
+  "vulnerability_id": "VULN_001",
+  "bug_type": "SQL_INJECTION",
+  "file": "payments/api.py",
+  "line": 102,
+  "severity": "high",
+  "exposure": "PUBLIC",
+  "probability_of_exploit": 0.22,
+  "impact_breakdown": {
+    "data_breach_cost": 1000000,
+    "incident_response_cost": 100000,
+    "downtime_cost": 48000,
+    "regulatory_penalty": 730000,
+    "reputation_damage": 240000
+  },
+  "total_impact": 2118000,
+  "expected_loss": 465960,
+  "fix_effort_hours": 6,
+  "priority_score": 77660,
+  "explanation": "A Sql Injection vulnerability was detected in payments/api.py (line 102).\n\nRISK SUMMARY\n  Exploitation probability: 22.0%..."
+}
+```
+
+Results are **sorted by priority_score descending** — highest ROI fixes first.
+
+---
+
+## WHAT EACH ENGINE FILE DOES (quick reference)
+
+| File | Responsibility |
+|---|---|
+| `scanner.py` | Clone repo, run Semgrep, normalize output |
+| `classifier.py` | Map Semgrep rule IDs → bug type keys |
+| `probability_model.py` | P(exploit) from bug type + exposure |
+| `impact_model.py` | 5-component financial impact calculation |
+| `expected_loss.py` | EL = P × Impact, Priority = EL / hours |
+| `ranker.py` | Sort results by priority score |
+| `explainer.py` | Generate management-readable explanation |
+
+---
+
+## KNOWN LIMITATIONS (be honest in demos)
+
+- Probability values are calibrated estimates, not live threat intel
+- Impact assumes 20% record exposure (configurable)
+- Semgrep misses some logic bugs by design (it's static analysis)
+- All numbers should be treated as order-of-magnitude, not actuals
+
+---
+
+## FUTURE EXTENSIONS (post-MVP)
+
+- Plug in CVE/NVD data for probability calibration
+- Ingest real downtime data from PagerDuty/Datadog
+- ML model for churn prediction post-breach
+- Attack path chaining (SQLi → lateral movement → RCE)
+- Jira/GitHub Issues integration for auto-ticket creation
+
+---
+*End of AGENT.md — everything above is buildable in one sitting.*

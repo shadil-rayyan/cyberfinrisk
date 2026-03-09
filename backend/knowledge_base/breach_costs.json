@@ -1,0 +1,25 @@
+{
+    "cost_per_record_by_industry": {
+        "finance": 250,
+        "healthcare": 400,
+        "technology": 150,
+        "retail": 130,
+        "education": 100,
+        "default": 165
+    },
+    "incident_response_cost": {
+        "startup": 30000,
+        "mid_size": 100000,
+        "enterprise": 500000
+    },
+    "downtime_cost_per_hour": {
+        "startup": 2000,
+        "mid_size": 12000,
+        "enterprise": 60000
+    },
+    "churn_rate_after_breach": {
+        "low_sensitivity": 0.02,
+        "medium_sensitivity": 0.05,
+        "high_sensitivity": 0.10
+    }
+}

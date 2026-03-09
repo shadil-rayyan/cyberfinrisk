@@ -1,0 +1,19 @@
+{
+    "downtime_hours_by_bug_type": {
+        "SQL_INJECTION": 4,
+        "AUTH_BYPASS": 6,
+        "RCE": 8,
+        "COMMAND_INJECTION": 6,
+        "INSECURE_DESERIALIZATION": 5,
+        "SSRF": 3,
+        "HARDCODED_CREDENTIALS": 4,
+        "XSS": 1,
+        "IDOR": 2,
+        "PATH_TRAVERSAL": 2,
+        "CSRF": 1,
+        "WEAK_CRYPTO": 2,
+        "INSECURE_RANDOM": 1,
+        "OPEN_REDIRECT": 0.5,
+        "UNKNOWN": 2
+    }
+}

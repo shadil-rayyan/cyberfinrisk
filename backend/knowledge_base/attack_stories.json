@@ -1,0 +1,184 @@
+{
+    "SQL_INJECTION": {
+        "victim_label": "customer financial data",
+        "attacker_effort": "low — automated tools find and exploit this in under an hour",
+        "detection_difficulty": "hard — SQL injection attacks leave no obvious trace in standard logs",
+        "steps": [
+            "Attacker discovers our payment API using automated scanning tools (Shodan, Google dorks). Thousands of APIs are scanned this way every day.",
+            "They send a crafted request that tricks our database into returning all records instead of just one. No password required. A free tool does this automatically.",
+            "In minutes, they download all {records} customer records including {data_types}.",
+            "We do not know this happened. They sell the data on dark web markets, use it for fraud, or contact us with a ransom demand."
+        ],
+        "real_world_analogy": "Like leaving your filing cabinet unlocked in a public lobby. Anyone walking past can take everything inside.",
+        "headline_template": "{company} Exposes {records} Customer Records in SQL Injection Attack",
+        "comparable_breach": "Heartland Payment Systems — SQL injection through a single web form stole 130 million credit card numbers. $140M in settlements. Stock dropped 77%."
+    },
+    "HARDCODED_CREDENTIALS": {
+        "victim_label": "entire system access",
+        "attacker_effort": "extremely low — bots scan public code repositories 24/7 for exactly this",
+        "detection_difficulty": "very hard — looks like legitimate access in logs",
+        "steps": [
+            "Our source code contains an API key or password written directly in the code.",
+            "Automated bots scan GitHub, npm, and public repositories constantly for credential patterns. Discovery often happens within hours of exposure.",
+            "Attacker uses the credential to authenticate as us — with full system permissions.",
+            "They read all data, move money, delete records, or install backdoors. The breach may go undetected for months because they appear as a legitimate user."
+        ],
+        "real_world_analogy": "Like printing your house keys on your business card.",
+        "headline_template": "{company} Suffers Breach After API Keys Found Exposed in Source Code",
+        "comparable_breach": "Toyota (2023) — a hardcoded key in code pushed to GitHub exposed 2.15 million customers' vehicle data for 5 years before discovery."
+    },
+    "AUTH_BYPASS": {
+        "victim_label": "all accounts and admin functions",
+        "attacker_effort": "medium — requires knowledge of authentication systems but tools exist",
+        "detection_difficulty": "medium",
+        "steps": [
+            "Attacker identifies our login or authentication endpoint.",
+            "They send a crafted request that skips the password check by exploiting a logic flaw.",
+            "They are now authenticated as any user they choose — including administrators.",
+            "From here they access all customer data, change account settings, initiate transactions, or lock out legitimate users."
+        ],
+        "real_world_analogy": "The front door lock opens if you jiggle the handle in a specific way. A determined person will find it.",
+        "headline_template": "{company} Authentication Flaw Allowed Unauthorized Access to {records} Customer Accounts",
+        "comparable_breach": "Uber (2022) — an attacker bypassed authentication then used hardcoded admin credentials to access AWS, GCP, and all internal systems. $148M fine, CISO faced criminal charges."
+    },
+    "XSS": {
+        "victim_label": "customer sessions and credentials",
+        "attacker_effort": "medium — requires crafting malicious links and targeting users",
+        "detection_difficulty": "hard — runs inside user browsers, invisible to server logs",
+        "steps": [
+            "Attacker crafts a malicious link containing hidden code and sends it to our customers via email or social media.",
+            "When a logged-in customer clicks the link, the malicious script runs silently in their browser.",
+            "The script steals their session token — functionally equivalent to their password — and sends it to the attacker.",
+            "Attacker logs in as the customer without needing their password. Customer has no idea this happened."
+        ],
+        "real_world_analogy": "Someone slips a listening device into an envelope. When you open it, it starts recording everything in the room.",
+        "headline_template": "{company} Customer Accounts Hijacked via Website Security Flaw",
+        "comparable_breach": "British Airways (2018) — XSS-related attack injected a script into the payment page. 500,000 customers had card details stolen in real time. £20M ICO fine."
+    },
+    "IDOR": {
+        "victim_label": "all customer records",
+        "attacker_effort": "very low — just change a number in the URL",
+        "detection_difficulty": "very hard — looks like normal API usage",
+        "steps": [
+            "Attacker creates a legitimate free account on our platform.",
+            "They notice their user ID appears in the URL (e.g. /api/invoices/1042).",
+            "They change that number to 1041, 1040... and discover they can access other customers' data with no error.",
+            "They write a script that iterates through all IDs and downloads every customer record in the system."
+        ],
+        "real_world_analogy": "Every hotel room uses sequential key cards. If card 301 opens room 302, a guest can enter every room in the building.",
+        "headline_template": "{company} API Flaw Let Any User Access Other Customers' Data",
+        "comparable_breach": "Optus (2022) — sequential API IDs let one attacker download 9.8 million customer passport and license records. $1.4B market cap loss overnight."
+    },
+    "SSRF": {
+        "victim_label": "internal infrastructure and cloud credentials",
+        "attacker_effort": "medium-high",
+        "detection_difficulty": "very hard",
+        "steps": [
+            "Attacker finds a feature in our app that fetches external URLs — image upload, webhook, PDF generator.",
+            "They point that feature at internal addresses: our database, cloud metadata service, internal admin panels.",
+            "Our server fetches those internal resources on the attacker's behalf — from the server's perspective it is a legitimate request.",
+            "Attacker retrieves cloud credentials or database connection strings and achieves full infrastructure access."
+        ],
+        "real_world_analogy": "Tricking an employee into faxing confidential internal documents to an outside number by disguising it as a normal work request.",
+        "headline_template": "{company} Internal Systems Exposed via Server-Side Request Forgery",
+        "comparable_breach": "Capital One (2019) — SSRF vulnerability let an attacker access AWS credentials and steal 106 million customer records. $190M settlement."
+    },
+    "RCE": {
+        "victim_label": "complete server control",
+        "attacker_effort": "high — but payoff is total system compromise",
+        "detection_difficulty": "varies",
+        "steps": [
+            "Attacker finds an input point that reaches code execution — a file upload, template renderer, or deserialization endpoint.",
+            "They send a crafted payload that causes our server to execute their code.",
+            "They now have a shell on our server with the same permissions as our application.",
+            "From here: steal all data, install ransomware, pivot to internal systems, or create a persistent backdoor. This is the worst possible outcome."
+        ],
+        "real_world_analogy": "Handing someone the ability to type commands directly into our servers remotely.",
+        "headline_template": "{company} Servers Compromised in Remote Code Execution Attack",
+        "comparable_breach": "Equifax (2017) — one unpatched RCE vulnerability. 147M Social Security numbers stolen. $700M settlement — the largest data breach settlement in history."
+    },
+    "COMMAND_INJECTION": {
+        "victim_label": "operating system and all server data",
+        "attacker_effort": "low-medium",
+        "detection_difficulty": "medium",
+        "steps": [
+            "Our application passes user input to a system command without sanitizing it.",
+            "Attacker appends extra commands using shell syntax (e.g. adding ; rm -rf or ; curl attacker.com).",
+            "Our server executes both the intended command and the attacker's command with application permissions.",
+            "Attacker can read all data, create backdoors, or destroy systems."
+        ],
+        "real_world_analogy": "An automated message-reading system that also obeys OS commands embedded in any message.",
+        "headline_template": "{company} Systems Compromised via Command Injection in Web Application",
+        "comparable_breach": "Accellion (2021) — command injection exploited by Clop ransomware group, breaching 100+ organizations simultaneously."
+    },
+    "INSECURE_DESERIALIZATION": {
+        "victim_label": "server execution and all stored data",
+        "attacker_effort": "high — requires crafted payloads",
+        "detection_difficulty": "hard",
+        "steps": [
+            "Our application accepts serialized data (cookies, API payloads, file uploads) and converts it to objects without validating it.",
+            "Attacker crafts a malicious payload that, when our server processes it, executes attacker-controlled code.",
+            "Attacker gains full server control — equivalent to RCE.",
+            "This is especially dangerous because the exploit happens before any business logic validation runs."
+        ],
+        "real_world_analogy": "Accepting a package from an unknown sender and opening it in the server room — it contains a remote detonator.",
+        "headline_template": "{company} Backdoored via Insecure Data Handling Vulnerability",
+        "comparable_breach": "Log4Shell (2021) — deserialization-class vulnerability. Estimated $4B in global remediation. Apple, Amazon, governments all affected simultaneously."
+    },
+    "PATH_TRAVERSAL": {
+        "victim_label": "server files including config, credentials, source code",
+        "attacker_effort": "low — simple URL manipulation",
+        "detection_difficulty": "medium",
+        "steps": [
+            "Attacker finds a file download or read endpoint in our application.",
+            "They manipulate the filename with ../ sequences to navigate outside the intended directory.",
+            "They read sensitive server files: application config, private keys, database credentials.",
+            "Using retrieved credentials they escalate to full system compromise."
+        ],
+        "real_world_analogy": "A file request system that lets you request any file on the company network if you phrase the request correctly.",
+        "headline_template": "{company} Server Credentials Exposed via File Access Vulnerability",
+        "comparable_breach": "Pulse Secure VPN (2020) — path traversal let attackers steal credentials and breach government agencies and defense contractors."
+    },
+    "WEAK_CRYPTO": {
+        "victim_label": "encrypted customer passwords and sensitive data",
+        "attacker_effort": "medium — GPU cracking is now cheap and fast",
+        "detection_difficulty": "only discovered after a breach",
+        "steps": [
+            "Our application uses outdated encryption (MD5, SHA1) to store passwords or sensitive data.",
+            "Attacker breaches our database via another vulnerability or insider threat.",
+            "Despite data being 'encrypted', they crack the weak hashes in hours using commodity hardware and public rainbow tables.",
+            "They now have plaintext passwords which customers reuse across banking, email, and other services."
+        ],
+        "real_world_analogy": "Locking a safe with one of the top 1,000 most common combinations.",
+        "headline_template": "{company} Breach Worse Than Expected — Customer Passwords Cracked Due to Weak Encryption",
+        "comparable_breach": "LinkedIn (2012) — 6.5M hashes stolen. Because they used unsalted SHA1, 90% were cracked within days and used across the internet."
+    },
+    "CSRF": {
+        "victim_label": "customer account actions performed without their knowledge",
+        "attacker_effort": "medium",
+        "detection_difficulty": "very hard — appears as legitimate user action",
+        "steps": [
+            "Attacker crafts a malicious webpage containing a hidden form targeting our application.",
+            "When a logged-in customer visits the page, their browser silently submits the form using their active session.",
+            "Our server sees a legitimate request from a logged-in user and processes it — a money transfer, password change, or deletion.",
+            "The customer had no idea the action was taken on their behalf."
+        ],
+        "real_world_analogy": "Someone tricks you into signing a contract by hiding it behind a button you think says OK.",
+        "headline_template": "{company} Customers' Accounts Manipulated Without Their Knowledge via Website Flaw",
+        "comparable_breach": "A CSRF flaw in a major bank allowed attackers to initiate transfers from customers' accounts via a single malicious link sent by email."
+    },
+    "UNKNOWN": {
+        "victim_label": "undetermined assets",
+        "attacker_effort": "unknown — requires manual assessment",
+        "detection_difficulty": "unknown",
+        "steps": [
+            "A security issue was detected in the codebase that does not match known patterns.",
+            "Manual review by a security engineer is required to assess actual risk.",
+            "Until assessed, this should be treated as a potential vulnerability.",
+            "Delay in review increases window of exposure if the issue is legitimate."
+        ],
+        "real_world_analogy": "An unlabelled container in your server room — could be harmless, could be dangerous. Needs inspection.",
+        "headline_template": "{company} Security Review Reveals Unassessed Vulnerabilities",
+        "comparable_breach": "Unknown security issues are the ones most likely to become breaches — because nobody looked closely enough."
+    }
+}

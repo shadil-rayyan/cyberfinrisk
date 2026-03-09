@@ -1,0 +1,56 @@
+name: Test And build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests with coverage
+        run: npm run test:unit -- --runInBand
+
+      - name: Build
+        run: npm run build
+
+      - name: Start Next.js
+        run: npm run start &
+        env:
+          PORT: 3000
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+
+      - name: Wait for Next.js
+        run: npx wait-on http://localhost:3000
+
+      - name: E2E tests (Playwright)
+        run: npm run test:e2e
+
+      - name: Run Lighthouse Audit
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: |
+            http://localhost:3000
+          uploadArtifacts: true
+
+      - name: Run bundle size check
+        run: npm run bundlesize
+

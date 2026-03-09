@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+semgrep
+gitpython
+httpx
+pydantic
+python-dotenv
+google-generativeai
+jinja2

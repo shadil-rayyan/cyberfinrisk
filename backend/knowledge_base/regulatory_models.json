@@ -1,0 +1,16 @@
+{
+    "GDPR": {
+        "fine_percentage_of_arr": 0.04,
+        "max_fine_usd": 20000000
+    },
+    "PCI_DSS": {
+        "avg_fine": 250000
+    },
+    "HIPAA": {
+        "max_annual": 1900000
+    },
+    "CCPA": {
+        "per_record_intentional": 750,
+        "max_fine": 7500
+    }
+}

@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VFIE — Vulnerability Business Impact Engine</title>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #13131a;
+            --surface2: #1c1c28;
+            --border: #2a2a3d;
+            --text: #e8e8f0;
+            --muted: #6b6b8a;
+            --accent: #e63946;
+            --accent2: #ff6b6b;
+            --green: #2ecc71;
+            --orange: #f39c12;
+            --yellow: #f1c40f;
+            --blue: #3498db;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-logo {
+            width: 36px;
+            height: 36px;
+            background: var(--accent);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 18px;
+            color: white;
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+
+        .header-subtitle {
+            font-size: 12px;
+            color: var(--muted);
+            margin-left: auto;
+        }
+
+        .header-badge {
+            background: rgba(230, 57, 70, 0.15);
+            border: 1px solid rgba(230, 57, 70, 0.3);
+            color: var(--accent);
+            padding: 3px 10px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 32px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--muted);
+            transition: all 0.15s;
+        }
+
+        .tab:hover {
+            color: var(--text);
+            border-color: var(--muted);
+        }
+
+        .tab.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-title::before {
+            content: '';
+            width: 3px;
+            height: 14px;
+            background: var(--accent);
+            border-radius: 2px;
+            display: inline-block;
+        }
+
+        /* Form elements */
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--text);
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.15s;
+            margin-bottom: 16px;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            color: var(--muted);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+        }
+
+        select option {
+            background: var(--surface);
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-size: 13px;
+        }
+
+        .checkbox-item:hover {
+            border-color: var(--accent);
+        }
+
+        .checkbox-item input[type=checkbox] {
+            width: auto;
+            margin: 0;
+            padding: 0;
+            accent-color: var(--accent);
+        }
+
+        .checkbox-item.checked {
+            border-color: var(--accent);
+            background: rgba(230, 57, 70, 0.08);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 28px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.15s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent2);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-lg {
+            padding: 16px 40px;
+            font-size: 16px;
+            width: 100%;
+            margin-top: 8px;
+        }
+
+        /* Metric cards */
+        .metric-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 800;
+            font-family: var(--font-mono);
+            color: var(--accent);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .metric-value.green {
+            color: var(--green);
+        }
+
+        .metric-value.orange {
+            color: var(--orange);
+        }
+
+        .metric-label {
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Vuln cards */
+        .vuln-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            transition: border-color 0.15s;
+        }
+
+        .vuln-card:hover {
+            border-color: var(--muted);
+        }
+
+        .vuln-header {
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .vuln-tier {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .vuln-title {
+            font-weight: 700;
+            font-size: 15px;
+            flex: 1;
+        }
+
+        .vuln-file {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .vuln-loss {
+            font-family: var(--font-mono);
+            font-weight: 800;
+            font-size: 18px;
+            color: var(--accent);
+            flex-shrink: 0;
+        }
+
+        .vuln-expand {
+            color: var(--muted);
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        .vuln-body {
+            padding: 0 20px 20px;
+            display: none;
+        }
+
+        .vuln-body.open {
+            display: block;
+        }
+
+        /* Brief pre */
+        .brief-pre {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: #c5c5d8;
+            max-height: 500px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+        }
+
+        /* Chain card */
+        .chain-card {
+            background: linear-gradient(135deg, rgba(230, 57, 70, 0.08), rgba(243, 156, 18, 0.05));
+            border: 1px solid rgba(230, 57, 70, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .chain-title {
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--accent2);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chain-steps {
+            margin: 12px 0;
+        }
+
+        .chain-step {
+            padding: 8px 12px;
+            border-left: 2px solid var(--accent);
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: #b0b0c8;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 0 6px 6px 0;
+        }
+
+        .chain-loss {
+            font-family: var(--font-mono);
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        /* Gemini badge */
+        .ai-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(52, 152, 219, 0.15);
+            border: 1px solid rgba(52, 152, 219, 0.3);
+            color: var(--blue);
+            padding: 2px 8px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 60px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-steps {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .loading-step {
+            padding: 4px 0;
+            transition: color 0.3s;
+        }
+
+        .loading-step.active {
+            color: var(--text);
+        }
+
+        .loading-step.done {
+            color: var(--green);
+        }
+
+        /* Results section */
+        #results {
+            display: none;
+        }
+
+        #results.show {
+            display: block;
+        }
+
+        /* Section title */
+        .section-title {
+            font-size: 22px;
+            font-weight: 800;
+            margin: 32px 0 20px;
+            letter-spacing: -0.5px;
+        }
+
+        .section-title span {
+            color: var(--accent);
+        }
+
+        /* Summary pre */
+        .summary-pre {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 28px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            color: #d0d0e0;
+            margin-bottom: 32px;
+        }
+
+        /* Error */
+        .error-box {
+            background: rgba(230, 57, 70, 0.1);
+            border: 1px solid rgba(230, 57, 70, 0.3);
+            border-radius: 8px;
+            padding: 16px 20px;
+            color: var(--accent2);
+            display: none;
+            margin-top: 12px;
+            font-size: 14px;
+        }
+
+        .error-box.show {
+            display: block;
+        }
+
+        /* Gemini toggle */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .toggle {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--border);
+            border-radius: 24px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .toggle-slider:before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            top: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.2s;
+        }
+
+        input:checked+.toggle-slider {
+            background: var(--accent);
+        }
+
+        input:checked+.toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .toggle-desc {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .grid-2,
+            .grid-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                padding: 16px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header">
+        <div class="header-logo">V</div>
+        <div class="header-title">Vulnerability Business Impact Engine</div>
+        <div class="header-badge">v3.0</div>
+        <div class="header-subtitle">Turn security bugs into financial decisions</div>
+    </div>
+
+    <div class="container">
+
+        <!-- TABS -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('scan')">🔍 Scan Repository</div>
+            <div class="tab" onclick="switchTab('manual')">📋 Manual Input</div>
+        </div>
+
+        <!-- SCAN TAB -->
+        <div id="tab-scan">
+            <div class="grid-2">
+                <!-- Left: Company Context -->
+                <div>
+                    <div class="card">
+                        <div class="card-title">Quick JSON Import</div>
+                        <label>Paste Company JSON</label>
+                        <textarea id="company_json_paste" placeholder='{ "company_name": "PostHog", ... }'
+                            style="min-height: 100px;"></textarea>
+                        <button class="btn btn-outline" onclick="importCompanyJSON()"
+                            style="width: 100%; margin-top: 8px;">
+                            ✨ Auto-populate Form
+                        </button>
+                        <div id="import_success"
+                            style="font-size: 11px; color: var(--green); margin-top: 8px; display: none;">✓ JSON
+                            imported successfully!</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">Company Context</div>
+
+                        <label>Company Name</label>
+                        <input type="text" id="company_name" placeholder="PayFlow Inc" />
+
+                        <div class="grid-2">
+                            <div>
+                                <label>Industry</label>
+                                <select id="industry">
+                                    <option value="finance">Finance / Fintech</option>
+                                    <option value="healthcare">Healthcare</option>
+                                    <option value="technology">Technology / SaaS</option>
+                                    <option value="retail">Retail / E-commerce</option>
+                                    <option value="education">Education</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Company Size</label>
+                                <select id="company_size">
+                                    <option value="startup">Startup (&lt;50 employees)</option>
+                                    <option value="mid_size" selected>Mid-size (50–500)</option>
+                                    <option value="enterprise">Enterprise (500+)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid-2">
+                            <div>
+                                <label>Annual Revenue (USD)</label>
+                                <input type="number" id="annual_revenue" placeholder="12000000" />
+                            </div>
+                            <div>
+                                <label>Monthly Revenue (USD)</label>
+                                <input type="number" id="monthly_revenue" placeholder="1000000" />
+                            </div>
+                        </div>
+
+                        <div class="grid-2">
+                            <div>
+                                <label>System Role (Fixes infra assumption)</label>
+                                <select id="system_role">
+                                    <option value="saas_product" selected>SaaS Product</option>
+                                    <option value="infrastructure">Infrastructure Component</option>
+                                    <option value="framework">Framework / Library</option>
+                                    <option value="internal_tool">Internal Tool</option>
+                                    <option value="microservice">Microservice</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Active Users</label>
+                                <input type="number" id="active_users" placeholder="20000" />
+                            </div>
+                        </div>
+
+                        <div class="grid-2">
+                            <div>
+                                <label>Engineer Hourly Cost (USD)</label>
+                                <input type="number" id="engineer_cost" placeholder="80" />
+                            </div>
+                            <div>
+                                <label>Avg Revenue per User / Month</label>
+                                <input type="number" id="arpu" placeholder="50" />
+                            </div>
+                        </div>
+
+                        <div class="grid-2">
+                            <div>
+                                <label>Deployment Exposure</label>
+                                <select id="exposure">
+                                    <option value="public">Public Internet</option>
+                                    <option value="internal">Internal Only</option>
+                                    <option value="private">Private / Air-gapped</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Records Stored</label>
+                                <input type="number" id="records" placeholder="200000" />
+                            </div>
+                        </div>
+                        <div>
+                            <label>Downtime Cost / Hour (USD)</label>
+                            <input type="number" id="downtime_cost" placeholder="12000" />
+                        </div>
+                    </div>
+
+                    <label>Sensitive Data Types</label>
+                    <div class="checkbox-group" id="data_types">
+                        <label class="checkbox-item checked"><input type="checkbox" value="PII" checked> PII</label>
+                        <label class="checkbox-item checked"><input type="checkbox" value="financial" checked>
+                            Financial</label>
+                        <label class="checkbox-item"><input type="checkbox" value="health"> Health</label>
+                        <label class="checkbox-item"><input type="checkbox" value="credentials"> Credentials</label>
+                    </div>
+
+                    <label>Regulatory Frameworks</label>
+                    <div class="checkbox-group" id="regulations">
+                        <label class="checkbox-item checked"><input type="checkbox" value="GDPR" checked>
+                            GDPR</label>
+                        <label class="checkbox-item checked"><input type="checkbox" value="PCI_DSS" checked> PCI
+                            DSS</label>
+                        <label class="checkbox-item"><input type="checkbox" value="HIPAA"> HIPAA</label>
+                        <label class="checkbox-item"><input type="checkbox" value="CCPA"> CCPA</label>
+                    </div>
+
+                    <label>Product Description (helps AI understand business context)</label>
+                    <textarea id="product_desc"
+                        placeholder="e.g. B2B SaaS payments platform serving SMBs. Handles invoicing, payouts, and financial reporting."></textarea>
+
+                    <label>Tech Stack (helps AI assess real exploitability)</label>
+                    <textarea id="stack_desc"
+                        placeholder="e.g. Django REST API, PostgreSQL, Redis, hosted on AWS ECS. Public API behind Cloudflare WAF."></textarea>
+                </div>
+            </div>
+
+            <!-- Right: Scan Config + Gemini -->
+            <div>
+                <div class="card">
+                    <div class="card-title">Repository Scan</div>
+
+                    <label>GitHub Repository URL</label>
+                    <input type="text" id="repo_url" placeholder="https://github.com/company/payment-api" />
+
+                    <label>Branch</label>
+                    <input type="text" id="branch" placeholder="main" value="main" />
+                </div>
+
+                <div class="card">
+                    <div class="card-title">AI Analysis (Gemini)</div>
+
+                    <div class="toggle-row">
+                        <label class="toggle">
+                            <input type="checkbox" id="gemini_toggle" onchange="toggleGemini(this)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <div>
+                            <div class="toggle-label">Enable Gemini AI Analysis</div>
+                            <div class="toggle-desc">Assesses real exploitability + finds attack chains</div>
+                        </div>
+                    </div>
+
+                    <div id="gemini_fields" class="hidden">
+                        <label>Gemini API Key (free at aistudio.google.com)</label>
+                        <input type="password" id="gemini_key" placeholder="AIza..." />
+
+                        <div
+                            style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px;font-size:13px;color:var(--muted);">
+                            <strong style="color:var(--text);">With AI enabled, the engine will:</strong><br>
+                            • Read actual code context to filter false positives<br>
+                            • Adjust exploit probability based on real code patterns<br>
+                            • Understand what each endpoint actually does<br>
+                            • Find attack chains across multiple vulnerabilities<br>
+                            • Generate specific fix code for each vulnerability
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">What Happens Next</div>
+                    <div style="font-size:13px;color:var(--muted);line-height:1.8;">
+                        1. Repository is cloned and scanned with Semgrep<br>
+                        2. Each finding is classified and financially modeled<br>
+                        3. <span id="ai_step_desc">Financial impact calculated from company context</span><br>
+                        4. Results ranked by expected dollar loss<br>
+                        5. Executive brief generated per vulnerability<br>
+                        6. Board-level summary produced
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-lg" onclick="runScan()" id="scan_btn">
+                    🔍 Run Security Scan
+                </button>
+                <div class="error-box" id="scan_error"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MANUAL TAB -->
+    <div id="tab-manual" class="hidden">
+        <div class="grid-2">
+            <div>
+                <div class="card">
+                    <div class="card-title">Company Context</div>
+                    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+                        Same as the Scan tab. Fill in the fields there — they are shared.
+                    </p>
+                    <a href="#" onclick="switchTab('scan');return false;" style="color:var(--accent);font-size:13px;">
+                        ← Fill in company context in the Scan tab
+                    </a>
+                </div>
+            </div>
+            <div>
+                <div class="card">
+                    <div class="card-title">Vulnerabilities (JSON)</div>
+                    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;">
+                        Paste vulnerability data directly. Useful for testing without a repo.
+                    </p>
+                    <textarea id="manual_vulns" style="min-height:300px;" placeholder='[
+  {
+    "id": "VULN_001",
+    "raw_rule_id": "sql-injection",
+    "file": "payments/api.py",
+    "line": 102,
+    "message": "Unsanitized input in SQL query",
+    "severity": "high",
+    "exposure": "PUBLIC"
+  },
+  {
+    "id": "VULN_002",
+    "raw_rule_id": "hardcoded-secret",
+    "file": "config/settings.py",
+    "line": 14,
+    "message": "Hardcoded API key found",
+    "severity": "critical",
+    "exposure": "PUBLIC"
+  }
+]'></textarea>
+                    <button class="btn btn-primary btn-lg" onclick="runManual()" id="manual_btn">
+                        📊 Analyze Vulnerabilities
+                    </button>
+                    <div class="error-box" id="manual_error"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOADING -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:16px;">Analyzing your codebase...</div>
+        <div class="loading-steps" id="loading_steps">
+            <div class="loading-step" id="step1">⏳ Scanning repository for vulnerabilities</div>
+            <div class="loading-step" id="step2">⏳ Classifying and modeling financial impact</div>
+            <div class="loading-step" id="step3">⏳ Running AI analysis on code context</div>
+            <div class="loading-step" id="step4">⏳ Detecting attack chains</div>
+            <div class="loading-step" id="step5">⏳ Generating executive briefs</div>
+        </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="results">
+
+        <!-- Metric bar -->
+        <div class="section-title">
+            Risk Assessment — <span id="result_company">Company</span>
+            <span id="ai_badge_header" class="hidden" style="margin-left:12px;">
+                <span class="ai-badge">✦ AI Analyzed</span>
+            </span>
+        </div>
+
+        <div class="grid-3" id="metrics" style="margin-bottom:32px;"></div>
+
+        <!-- Executive Summary -->
+        <div class="section-title">Board Summary</div>
+        <div class="summary-pre" id="executive_summary"></div>
+
+        <!-- Attack Chains -->
+        <div id="chains_section" class="hidden">
+            <div class="section-title">⚠️ Attack <span>Chains Detected</span></div>
+            <p style="font-size:13px;color:var(--muted);margin-bottom:20px;">
+                These vulnerabilities can be combined by an attacker into a single multi-step breach path,
+                causing greater damage than any individual bug.
+            </p>
+            <div id="chains_list"></div>
+        </div>
+
+        <!-- Vulnerability List -->
+        <div class="section-title">Vulnerabilities — <span>Ranked by Financial Priority</span></div>
+        <div id="vuln_list"></div>
+
+        <button class="btn btn-outline" onclick="resetUI()" style="margin-top:20px;">
+            ← Run Another Scan
+        </button>
+    </div>
+
+    </div>
+
+    <script>
+        // --- JSON Import ---
+        function importCompanyJSON() {
+            const area = document.getElementById('company_json_paste');
+            const success = document.getElementById('import_success');
+            try {
+                const data = JSON.parse(area.value);
+
+                // Map fields
+                if (data.company_name) document.getElementById('company_name').value = data.company_name;
+                if (data.industry) document.getElementById('industry').value = data.industry;
+                if (data.company_size) document.getElementById('company_size').value = data.company_size;
+                if (data.system_role) document.getElementById('system_role').value = data.system_role;
+                if (data.annual_revenue) document.getElementById('annual_revenue').value = data.annual_revenue;
+                if (data.monthly_revenue) document.getElementById('monthly_revenue').value = data.monthly_revenue;
+
+                // User count variations
+                const users = data.active_users || data.active_customers || data.active_stores || data.developers_using_platform || 0;
+                document.getElementById('active_users').value = users;
+
+                if (data.arpu) document.getElementById('arpu').value = data.arpu;
+                if (data.engineer_hourly_cost) document.getElementById('engineer_cost').value = data.engineer_hourly_cost;
+                if (data.estimated_records_stored) document.getElementById('records').value = data.estimated_records_stored;
+                if (data.deployment_exposure) {
+                    const exp = data.deployment_exposure.toLowerCase();
+                    if (exp.includes('public')) document.getElementById('exposure').value = 'public';
+                    else if (exp.includes('internal')) document.getElementById('exposure').value = 'internal';
+                    else if (exp.includes('private')) document.getElementById('exposure').value = 'private';
+                }
+                if (data.estimated_downtime_cost_per_hour) document.getElementById('downtime_cost').value = data.estimated_downtime_cost_per_hour;
+
+                // Checkboxes
+                if (data.sensitive_data_types) {
+                    const dts = data.sensitive_data_types.map(t => t.toUpperCase());
+                    document.querySelectorAll('#data_types input').forEach(cb => {
+                        cb.checked = dts.includes(cb.value.toUpperCase()) || dts.some(t => cb.value.toUpperCase().includes(t));
+                        cb.closest('.checkbox-item').classList.toggle('checked', cb.checked);
+                    });
+                }
+                if (data.regulatory_frameworks) {
+                    const regs = data.regulatory_frameworks.map(r => r.toUpperCase());
+                    document.querySelectorAll('#regulations input').forEach(cb => {
+                        cb.checked = regs.includes(cb.value.toUpperCase());
+                        cb.closest('.checkbox-item').classList.toggle('checked', cb.checked);
+                    });
+                }
+
+                if (data.product_description) document.getElementById('product_desc').value = data.product_description;
+                if (data.stack_description) document.getElementById('stack_desc').value = data.stack_description;
+
+                success.style.display = 'block';
+                setTimeout(() => { success.style.display = 'none'; }, 3000);
+            } catch (e) {
+                alert("Invalid JSON format. Please check your input.");
+            }
+        }
+
+        // --- Tab switching ---
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach((t, i) => {
+                t.classList.toggle('active', (i === 0 && tab === 'scan') || (i === 1 && tab === 'manual'));
+            });
+            document.getElementById('tab-scan').classList.toggle('hidden', tab !== 'scan');
+            document.getElementById('tab-manual').classList.toggle('hidden', tab !== 'manual');
+        }
+
+        // --- Gemini toggle ---
+        function toggleGemini(cb) {
+            document.getElementById('gemini_fields').classList.toggle('hidden', !cb.checked);
+            document.getElementById('ai_step_desc').textContent = cb.checked
+                ? 'Gemini analyzes actual code to filter false positives'
+                : 'Financial impact calculated from company context';
+        }
+
+        // Checkbox items visual state
+        document.querySelectorAll('.checkbox-item input[type=checkbox]').forEach(cb => {
+            cb.addEventListener('change', () => {
+                cb.closest('.checkbox-item').classList.toggle('checked', cb.checked);
+            });
+        });
+
+        // --- Collect company context ---
+        function getCompany() {
+            const types = Array.from(document.querySelectorAll('#data_types input:checked')).map(cb => cb.value);
+            const regs = Array.from(document.querySelectorAll('#regulations input:checked')).map(cb => cb.value);
+
+            return {
+                company_name: document.getElementById('company_name').value || "ACME Corp",
+                industry: document.getElementById('industry').value || "finance",
+                annual_revenue: Number(document.getElementById('annual_revenue').value) || 12000000,
+                monthly_revenue: Number(document.getElementById('monthly_revenue').value) || 1000000,
+                active_users: Number(document.getElementById('active_users').value) || 20000,
+                arpu: Number(document.getElementById('arpu').value) || 50,
+                engineer_hourly_cost: Number(document.getElementById('engineer_cost').value) || 80,
+                deployment_exposure: document.getElementById('exposure').value,
+                infrastructure_type: "cloud",
+                system_role: document.getElementById('system_role').value || "saas_product",
+                sensitive_data_types: types,
+                regulatory_frameworks: regs,
+                estimated_records_stored: Number(document.getElementById('records').value) || 200000,
+                company_size: document.getElementById('company_size').value || "mid_size",
+                estimated_downtime_cost_per_hour: Number(document.getElementById('downtime_cost').value) || null,
+                stack_description: document.getElementById('stack_desc').value || null,
+                product_description: document.getElementById('product_desc').value || null
+            };
+        }
+
+        // --- Loading animation ---
+        let loadingInterval;
+        function startLoading(withGemini) {
+            document.getElementById('loading').classList.add('show');
+            document.getElementById('results').classList.remove('show');
+            document.getElementById('results').style.display = 'none';
+            const steps = [1, 2, 3, 4, 5];
+            steps.forEach(i => {
+                const el = document.getElementById(`step${i}`);
+                el.className = 'loading-step';
+                el.textContent = el.textContent.replace(/^[✅⏳]/, '⏳');
+            });
+            if (!withGemini) {
+                document.getElementById('step3').style.opacity = '0.3';
+                document.getElementById('step4').style.opacity = '0.3';
+            }
+            let current = 1;
+            loadingInterval = setInterval(() => {
+                if (current > 1) {
+                    const prev = document.getElementById(`step${current - 1}`);
+                    prev.classList.add('done');
+                    prev.textContent = prev.textContent.replace('⏳', '✅');
+                }
+                if (current <= 5) {
+                    const curr = document.getElementById(`step${current}`);
+                    curr.classList.add('active');
+                    current++;
+                }
+            }, withGemini ? 2500 : 1200);
+        }
+
+        function stopLoading() {
+            clearInterval(loadingInterval);
+            document.getElementById('loading').classList.remove('show');
+        }
+
+        // --- Format money ---
+        function fmtMoney(n) {
+            if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
+            if (n >= 1000) return `$${(n / 1000).toFixed(0)}K`;
+            return `$${n.toFixed(0)}`;
+        }
+
+        function fmtRange(n) {
+            if (n <= 0) return "$0";
+            return `${fmtMoney(n * 0.8)} - ${fmtMoney(n * 1.2)}`;
+        }
+
+        // --- Render results ---
+        function renderResults(data) {
+            stopLoading();
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('results').classList.add('show');
+
+            const { results, attack_chains, executive_summary,
+                total_expected_loss, total_fix_cost, gemini_enabled } = data;
+
+            document.getElementById('result_company').textContent =
+                document.getElementById('company_name').value || 'Company';
+
+            if (gemini_enabled) {
+                document.getElementById('ai_badge_header').classList.remove('hidden');
+            }
+
+            // Metrics
+            const totalImpact = results.reduce((s, r) => s + r.total_impact, 0);
+            const critical = results.filter(r => r.expected_loss >= 100000).length;
+            const roi = total_fix_cost > 0 ? Math.round(total_expected_loss / total_fix_cost) : 0;
+
+            document.getElementById('metrics').innerHTML = `
+      <div class="metric-card">
+        <div class="metric-value" style="font-size: 1.5rem;">${fmtRange(total_expected_loss)}</div>
+        <div class="metric-label">Total Expected Loss</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value green">${fmtMoney(total_fix_cost)}</div>
+        <div class="metric-label">Total Fix Cost</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value orange">${roi}×</div>
+        <div class="metric-label">ROI of Fixing Everything</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">${results.length}</div>
+        <div class="metric-label">Vulnerabilities Found</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">${critical}</div>
+        <div class="metric-label">Critical This Sprint</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">${attack_chains.length}</div>
+        <div class="metric-label">Attack Chains</div>
+      </div>
+    `;
+
+            // Executive summary
+            document.getElementById('executive_summary').textContent = executive_summary;
+
+            // Attack chains
+            if (attack_chains.length > 0) {
+                document.getElementById('chains_section').classList.remove('hidden');
+                document.getElementById('chains_list').innerHTML = attack_chains.map(c => `
+        <div class="chain-card">
+          <div class="chain-title">
+            ⛓️ ${c.chain_id}
+            <span style="font-size:12px;background:rgba(230,57,70,0.2);padding:2px 8px;border-radius:4px;">${c.combined_severity.toUpperCase()}</span>
+          </div>
+          <div style="font-size:14px;margin-bottom:12px;color:#c0c0d8;">${c.chain_description}</div>
+          <div class="chain-steps">
+            ${c.chain_steps.map(s => `<div class="chain-step">${s}</div>`).join('')}
+          </div>
+          <div style="margin-top:12px;display:flex;gap:16px;align-items:center;">
+            <div>
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;">Combined Expected Loss</div>
+              <div class="chain-loss">${fmtRange(c.combined_expected_loss)}</div>
+            </div>
+            <div style="font-size:12px;color:var(--muted);">
+              Involves: ${c.vulnerability_ids.join(', ')}
+            </div>
+          </div>
+        </div>
+      `).join('');
+            }
+
+            // Vulnerability list
+            document.getElementById('vuln_list').innerHTML = results.map((r, i) => {
+                const tier = r.expected_loss >= 100000 ? '🔴'
+                    : r.expected_loss >= 30000 ? '🟠'
+                        : r.expected_loss >= 5000 ? '🟡' : '🟢';
+                const gBadge = r.gemini_analysis
+                    ? `<span class="ai-badge">✦ AI</span>` : '';
+                const fpWarn = r.gemini_analysis && r.gemini_analysis.false_positive_likelihood === 'high'
+                    ? `<span style="font-size:11px;background:rgba(241,196,15,0.2);color:var(--yellow);padding:2px 8px;border-radius:4px;">⚠️ Possible false positive</span>` : '';
+                const chainBadge = r.attack_chains && r.attack_chains.length
+                    ? `<span style="font-size:11px;background:rgba(230,57,70,0.2);color:var(--accent);padding:2px 8px;border-radius:4px;">⛓️ In attack chain</span>` : '';
+
+                return `
+        <div class="vuln-card">
+          <div class="vuln-header" onclick="toggleVuln(${i})">
+            <div class="vuln-tier">${tier}</div>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span class="vuln-title">${r.bug_type.replace(/_/g, ' ')}</span>
+                ${gBadge} ${fpWarn} ${chainBadge}
+              </div>
+              <div class="vuln-file">${r.file}:${r.line} · ${r.exposure}</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="vuln-loss" style="font-size: 1rem;">${fmtRange(r.expected_loss)}</div>
+              <div style="font-size:11px;color:var(--muted);">expected loss</div>
+            </div>
+            <div class="vuln-expand" id="expand_${i}">▼</div>
+          </div>
+          <div class="vuln-body" id="vuln_body_${i}">
+            ${r.gemini_analysis ? `
+              <div style="background:rgba(52,152,219,0.08);border:1px solid rgba(52,152,219,0.2);border-radius:8px;padding:14px;margin-bottom:16px;">
+                <div style="font-size:11px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">✦ Gemini AI Analysis</div>
+                <div style="font-size:13px;color:#b0cce8;margin-bottom:6px;"><strong>What this code does:</strong> ${r.gemini_analysis.business_context}</div>
+                <div style="font-size:13px;color:#b0cce8;margin-bottom:6px;"><strong>Exploitable?</strong> ${r.gemini_analysis.is_exploitable ? 'Yes' : 'No'} (${r.gemini_analysis.exploitability_confidence} confidence)</div>
+                <div style="font-size:13px;color:#b0cce8;margin-bottom:6px;"><strong>Why:</strong> ${r.gemini_analysis.exploitability_reasoning}</div>
+                <div style="font-size:13px;color:#b0cce8;"><strong>Fix:</strong> ${r.gemini_analysis.recommended_fix}</div>
+              </div>` : ''}
+            <div class="brief-pre">${r.business_brief}</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:140px;background:var(--surface2);border-radius:8px;padding:12px;text-align:center;">
+                <div style="font-size:16px;font-weight:800;font-family:var(--font-mono);color:var(--accent);">${fmtRange(r.expected_loss)}</div>
+                <div style="font-size:11px;color:var(--muted);">Expected Loss</div>
+              </div>
+              <div style="flex:1;min-width:140px;background:var(--surface2);border-radius:8px;padding:12px;text-align:center;">
+                <div style="font-size:20px;font-weight:800;font-family:var(--font-mono);color:var(--green);">${fmtMoney(r.fix_cost_usd)}</div>
+                <div style="font-size:11px;color:var(--muted);">Fix Cost (${r.fix_effort_hours}h)</div>
+              </div>
+              <div style="flex:1;min-width:140px;background:var(--surface2);border-radius:8px;padding:12px;text-align:center;">
+                <div style="font-size:20px;font-weight:800;font-family:var(--font-mono);color:var(--orange);">${r.roi_of_fixing}×</div>
+                <div style="font-size:11px;color:var(--muted);">ROI of Fixing</div>
+              </div>
+              <div style="flex:1;min-width:140px;background:var(--surface2);border-radius:8px;padding:12px;text-align:center;">
+                <div style="font-size:20px;font-weight:800;font-family:var(--font-mono);">${Math.round(r.effective_probability * 100)}%</div>
+                <div style="font-size:11px;color:var(--muted);">${r.gemini_analysis ? 'AI-Adjusted' : 'Exploit'} Probability</div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+            }).join('');
+        }
+
+        function toggleVuln(i) {
+            const body = document.getElementById(`vuln_body_${i}`);
+            const expand = document.getElementById(`expand_${i}`);
+            const open = body.classList.toggle('open');
+            expand.textContent = open ? '▲' : '▼';
+        }
+
+        // --- Run scan ---
+        async function runScan() {
+            const btn = document.getElementById('scan_btn');
+            const err = document.getElementById('scan_error');
+            err.classList.remove('show');
+            const gemini_api_key = document.getElementById('gemini_toggle').checked
+                ? document.getElementById('gemini_key').value : null;
+            startLoading(!!gemini_api_key);
+            btn.disabled = true;
+            try {
+                const res = await fetch('/scan-repo', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        repo_url: document.getElementById('repo_url').value,
+                        branch: document.getElementById('branch').value || 'main',
+                        company: getCompany(),
+                        gemini_api_key
+                    })
+                });
+                if (!res.ok) {
+                    const d = await res.json();
+                    throw new Error(d.detail || 'Scan failed');
+                }
+                renderResults(await res.json());
+            } catch (e) {
+                stopLoading();
+                err.textContent = `Error: ${e.message}`;
+                err.classList.add('show');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // --- Run manual ---
+        async function runManual() {
+            const btn = document.getElementById('manual_btn');
+            const err = document.getElementById('manual_error');
+            err.classList.remove('show');
+            let vulns;
+            try {
+                vulns = JSON.parse(document.getElementById('manual_vulns').value);
+            } catch {
+                err.textContent = 'Invalid JSON. Please check the vulnerability input.';
+                err.classList.add('show');
+                return;
+            }
+            const gemini_api_key = document.getElementById('gemini_toggle').checked
+                ? document.getElementById('gemini_key').value : null;
+            startLoading(!!gemini_api_key);
+            btn.disabled = true;
+            try {
+                const res = await fetch('/analyze-manual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        vulnerabilities: vulns,
+                        company: getCompany(),
+                        gemini_api_key
+                    })
+                });
+                if (!res.ok) {
+                    const d = await res.json();
+                    throw new Error(d.detail || 'Analysis failed');
+                }
+                renderResults(await res.json());
+            } catch (e) {
+                stopLoading();
+                err.textContent = `Error: ${e.message}`;
+                err.classList.add('show');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function resetUI() {
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('results').classList.remove('show');
+            document.getElementById('chains_section').classList.add('hidden');
+            window.scrollTo(0, 0);
+        }
+    </script>
+</body>
+
+</html>
