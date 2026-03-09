@@ -139,6 +139,30 @@ docker run -d -p 3001:3000 grafana/grafana
 
 ---
 
+## ☁️ Cloud & Serverless Compatibility (Netlify/Cloudflare)
+
+The logger is specifically configured to work in restrictive serverless/edge environments:
+*   **Edge Registry**: Automatically avoids using `worker_threads` (via `pino-pretty`) in production, as these are blocked in most Edge runtimes (Cloudflare Workers, Netlify Edge).
+*   **Standard Streams**: Logs are written to `stdout`, which is standardly captured by Netlify/Cloudflare log forwarders.
+*   **Structured Output**: Every log line is valid JSON, ensuring compatibility with external log aggregators like Datadog, Logtail, or Cloudwatch.
+
+---
+
+## 🐍 Backend Logging (Python/FastAPI)
+
+The Python backend uses a custom JSON formatter to match the frontend's observability pattern.
+
+**File**: `backend/logging_config.py`
+```python
+# Logs are output as JSON by default in production
+# Toggle via LOG_FORMAT=TEXT if human-readable logs are needed
+setup_logging()
+```
+
+This ensures that regardless of which service generates a log, the format remains consistent for centralized analysis.
+
+---
+
 ## ✅ Putting It All Together
 
 * **Pino** → Structured logs (`info`, `warn`, `error`) for debugging & observability.

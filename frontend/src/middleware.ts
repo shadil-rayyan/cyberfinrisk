@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { metrics } from './lib/metrics';
 
+export const runtime = 'nodejs';
+
 export function middleware(request: NextRequest) {
     const start = Date.now();
     const response = NextResponse.next();

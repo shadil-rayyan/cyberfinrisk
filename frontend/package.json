@@ -20,15 +20,21 @@
     "release:major": "standard-version --release-as major",
     "bundlesize": "bundlesize",
     "Docker-build": "docker build -t nextjs_tempalate .",
-    "Docker-run": "docker run -p 3000:3000 nextjs_tempalate"
+    "Docker-run": "docker run -p 3000:3000 nextjs_tempalate",
+    "test:load": "k6 run ../scripts/load-tests/basic_load_test.js"
   },
   "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.577.0",
     "next": "15.5.2",
     "pino": "^9.9.0",
     "prom-client": "^15.1.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "react-testing-library": "^8.0.1"
+    "react-testing-library": "^8.0.1",
+    "recharts": "^3.8.0",
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

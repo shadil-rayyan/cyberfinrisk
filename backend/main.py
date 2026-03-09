@@ -7,6 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from logging_config import setup_logging
+
+# Initialize structured logging
+logger = setup_logging()
 
 from models.company import CompanyContext
 from models.risk_result import RiskResult, AttackChain
