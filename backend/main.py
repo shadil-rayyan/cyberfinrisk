@@ -20,9 +20,13 @@ from engine.ranker import rank_vulnerabilities
 from engine.gemini_analyzer import init_gemini, analyze_vulnerability
 from engine.attack_chain import find_attack_chains
 from engine.business_brief import generate_business_brief, generate_executive_summary
+from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(title="Vulnerability Business Impact Engine", version="3.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# Instrument the app for Prometheus
+Instrumentator().instrument(app).expose(app)
 
 # Serve frontend
 app.mount("/static", StaticFiles(directory="frontend"), name="static")

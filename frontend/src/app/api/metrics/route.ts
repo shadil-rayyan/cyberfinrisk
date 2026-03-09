@@ -1,23 +1,18 @@
-// app/api/metrics/route.ts
 import { NextResponse } from "next/server";
-import client from "prom-client";
-export const dynamic = "force-static";
-export const revalidate = false;
+import { register } from "@/lib/metrics";
 
-// Collect default metrics (CPU, memory, etc.)
-client.collectDefaultMetrics();
-
-// Optional: a custom histogram metric
-const httpDuration = new client.Histogram({
-  name: "http_request_duration_seconds",
-  help: "Duration of HTTP requests in seconds",
-  labelNames: ["method", "route", "status_code"],
-  buckets: [0.1, 0.3, 1.5, 10],
-});
-client.register.registerMetric(httpDuration);
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return new NextResponse(await client.register.metrics(), {
-    headers: { "Content-Type": client.register.contentType },
-  });
+  try {
+    const metricsContent = await register.metrics();
+    return new NextResponse(metricsContent, {
+      headers: {
+        "Content-Type": "text/plain; version=0.0.4; charset=utf-8",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+      },
+    });
+  } catch (error) {
+    return new NextResponse("Error generating metrics", { status: 500 });
+  }
 }
