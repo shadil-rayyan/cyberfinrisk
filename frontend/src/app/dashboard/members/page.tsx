@@ -8,7 +8,8 @@ import {
     Mail,
     Search,
     X,
-    Send
+    Send,
+    Check
 } from "lucide-react";
 import { ORGANIZATIONS } from "@/lib/mock-data";
 
@@ -70,6 +71,7 @@ export default function MembersPage() {
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [inviteRole, setInviteRole] = useState("Developer");
     const [inviteEmail, setInviteEmail] = useState("");
+    const [inviteTeams, setInviteTeams] = useState<string[]>([]);
     
     // In a real app, this would be the actual org from context/state
     const org = ORGANIZATIONS[1]!;
@@ -315,6 +317,36 @@ export default function MembersPage() {
                                                 <div className="text-sm font-semibold">{role.id}</div>
                                                 <div className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>{role.desc}</div>
                                             </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="mb-2">
+                                <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                                    Teams (Optional)
+                                </label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1">
+                                    {org.teams.map(team => (
+                                        <div 
+                                            key={team.id}
+                                            onClick={() => setInviteTeams(prev => prev.includes(team.id) ? prev.filter(t => t !== team.id) : [...prev, team.id])}
+                                            className="flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer transition-colors border"
+                                            style={{ 
+                                                background: inviteTeams.includes(team.id) ? "var(--surface2)" : "var(--surface)",
+                                                borderColor: inviteTeams.includes(team.id) ? "var(--accent)" : "var(--border)"
+                                            }}
+                                        >
+                                            <div 
+                                                className="w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0"
+                                                style={{ 
+                                                    borderColor: inviteTeams.includes(team.id) ? "var(--accent)" : "var(--muted)",
+                                                    background: inviteTeams.includes(team.id) ? "var(--accent)" : "transparent"
+                                                }}
+                                            >
+                                                {inviteTeams.includes(team.id) && <Check size={10} className="text-white" />}
+                                            </div>
+                                            <div className="text-xs font-semibold truncate">{team.name}</div>
                                         </div>
                                     ))}
                                 </div>

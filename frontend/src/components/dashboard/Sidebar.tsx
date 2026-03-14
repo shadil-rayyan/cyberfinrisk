@@ -30,7 +30,7 @@ const NAV_MAIN = [
 ];
 
 const NAV_TEAM = [
-    { href: "/dashboard/settings", icon: Settings, label: "Team Settings" },
+    { href: "/dashboard/settings", icon: Settings, label: "Org Settings" },
     { href: "/dashboard/members", icon: Users, label: "Members" },
     { href: "/dashboard/billing", icon: CreditCard, label: "Billing" },
 ];
@@ -177,7 +177,7 @@ export default function Sidebar() {
 
                 <div>
                     <p className="text-[11px] font-semibold uppercase tracking-widest px-2.5 mb-2" style={{ color: "var(--muted)" }}>
-                        Team
+                        Organization
                     </p>
                     {NAV_TEAM.map(item => (
                         <Link
