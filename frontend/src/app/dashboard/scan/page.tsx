@@ -1,35 +1,28 @@
 "use client";
 
 import { useState } from "react";
-import { Scan, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
-import { MOCK_SCAN_RESULT } from "@/lib/mock-data";
-import { fmtMoney, fmtRange } from "@/lib/utils";
-import type { Severity } from "@/lib/mock-data";
+import { Loader2, CheckCircle, AlertTriangle, ArrowLeft } from "lucide-react";
+import ScanTab from "@/components/ScanTab";
+import ManualTab from "@/components/ManualTab";
+import { api } from "@/lib/api";
+import { ScanResults, CompanyContext, VulnInput } from "@/lib/types";
+import { fmtMoney } from "@/lib/utils";
 
-type ScanState = "idle" | "scanning" | "done";
+type ScanState = "idle" | "scanning" | "done" | "error";
 
-const SEV_COLORS: Record<Severity, string> = {
+const SEV_COLORS: Record<string, string> = {
     critical: "#e63946",
     high: "#f97316",
     medium: "#eab308",
     low: "#22c55e",
 };
 
-const INDUSTRIES = [
-    "Finance / Fintech",
-    "Healthcare",
-    "Technology / SaaS",
-    "Retail / E-commerce",
-    "Education",
-    "Government",
-    "Media & Entertainment",
-];
-
-function SevBadge({ sev }: { sev: Severity }) {
+function SevBadge({ sev }: { sev: string }) {
+    const s = sev.toLowerCase();
     return (
         <span
             className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-            style={{ background: `${SEV_COLORS[sev]}22`, color: SEV_COLORS[sev] }}
+            style={{ background: `${SEV_COLORS[s] || "#71717a"}22`, color: SEV_COLORS[s] || "#71717a" }}
         >
             {sev}
         </span>
@@ -38,155 +31,123 @@ function SevBadge({ sev }: { sev: Severity }) {
 
 export default function ScanPage() {
     const [state, setState] = useState<ScanState>("idle");
-    const [progress, setProgress] = useState(0);
-    const [step, setStep] = useState("");
-    const [form, setForm] = useState({
-        repoUrl: "",
-        industry: "Finance / Fintech",
-        revenue: "",
-        users: "",
-        exposure: "public",
-    });
+    const [activeTab, setActiveTab] = useState<"scan" | "manual">("scan");
+    const [results, setResults] = useState<ScanResults | null>(null);
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
 
-    const STEPS = [
-        "Cloning repository...",
-        "Running Semgrep analysis...",
-        "Classifying findings...",
-        "Modelling financial impact...",
-        "Generating report...",
-    ];
+    // Mock company context for ManualTab shared context note or simple defaults
+    const getCompanyInternal = (): CompanyContext => {
+        // This is used by ManualTab to get company context if shared.
+        // In a real app, this might be managed by a global state or form.
+        return {
+            company_name: "ACME Corp",
+            industry: "finance",
+            annual_revenue: 12000000,
+            monthly_revenue: 1000000,
+            active_users: 20000,
+            arpu: 50,
+            engineer_hourly_cost: 80,
+            deployment_exposure: "public",
+            infrastructure_type: "cloud",
+            system_role: "saas_product",
+            sensitive_data_types: ["PII", "financial"],
+            regulatory_frameworks: ["GDPR", "PCI_DSS"],
+            estimated_records_stored: 200000,
+            company_size: "mid_size",
+            estimated_downtime_cost_per_hour: 12000,
+            stack_description: null,
+            product_description: null,
+        };
+    };
 
-    function handleScan(e: React.FormEvent) {
-        e.preventDefault();
+    async function handleScan(payload: {
+        company: CompanyContext;
+        repo_url: string;
+        branch: string;
+        gemini_api_key: string | null;
+    }) {
+        setLoading(true);
         setState("scanning");
-        setProgress(0);
+        setError("");
+        try {
+            const data = await api.scanRepo(payload);
+            setResults(data);
+            setState("done");
+        } catch (err: any) {
+            setError(err.message || "Failed to scan repository");
+            setState("error");
+        } finally {
+            setLoading(false);
+        }
+    }
 
-        let s = 0;
-        setStep(STEPS[0]!);
-        const interval = setInterval(() => {
-            s += 1;
-            setProgress(Math.min(s * 20, 100));
-            if (s < STEPS.length) setStep(STEPS[s]!);
-            if (s >= 5) {
-                clearInterval(interval);
-                setState("done");
-            }
-        }, 900);
+    async function handleAnalyze(payload: {
+        vulnerabilities: VulnInput[];
+        company: CompanyContext;
+        gemini_api_key: string | null;
+    }) {
+        setLoading(true);
+        setState("scanning");
+        setError("");
+        try {
+            const data = await api.analyzeManual(payload);
+            setResults(data);
+            setState("done");
+        } catch (err: any) {
+            setError(err.message || "Failed to analyze vulnerabilities");
+            setState("error");
+        } finally {
+            setLoading(false);
+        }
     }
 
     function reset() {
         setState("idle");
-        setProgress(0);
-        setStep("");
+        setResults(null);
+        setError("");
     }
 
     return (
         <div className="px-6 md:px-10 py-8 max-w-4xl">
             <div className="mb-8">
-                <h1 className="text-2xl font-extrabold tracking-tight mb-1">Scan Repository</h1>
+                <h1 className="text-2xl font-extrabold tracking-tight mb-1">Security Engine</h1>
                 <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-                    Analyse a GitHub repository and convert vulnerabilities to financial risk
+                    Translate vulnerabilities into financial risk using static analysis and AI
                 </p>
             </div>
 
             {state === "idle" && (
-                <form onSubmit={handleScan}>
-                    <div className="rounded-xl p-6" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            {/* Repo URL */}
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                                    GitHub Repository URL *
-                                </label>
-                                <input
-                                    type="url"
-                                    required
-                                    placeholder="https://github.com/acme/payment-api"
-                                    value={form.repoUrl}
-                                    onChange={e => setForm(f => ({ ...f, repoUrl: e.target.value }))}
-                                    className="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none transition-colors"
-                                    style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }}
-                                    onFocus={e => (e.target.style.borderColor = "var(--accent)")}
-                                    onBlur={e => (e.target.style.borderColor = "var(--border)")}
-                                />
-                            </div>
-
-                            {/* Industry */}
-                            <div>
-                                <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                                    Industry
-                                </label>
-                                <select
-                                    value={form.industry}
-                                    onChange={e => setForm(f => ({ ...f, industry: e.target.value }))}
-                                    className="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none"
-                                    style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }}
-                                >
-                                    {INDUSTRIES.map(i => <option key={i}>{i}</option>)}
-                                </select>
-                            </div>
-
-                            {/* Exposure */}
-                            <div>
-                                <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                                    Exposure Type
-                                </label>
-                                <select
-                                    value={form.exposure}
-                                    onChange={e => setForm(f => ({ ...f, exposure: e.target.value }))}
-                                    className="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none"
-                                    style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }}
-                                >
-                                    <option value="public">Public Internet</option>
-                                    <option value="internal">Internal Only</option>
-                                    <option value="private">Private / Air-gapped</option>
-                                </select>
-                            </div>
-
-                            {/* Annual Revenue */}
-                            <div>
-                                <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                                    Annual Revenue (USD)
-                                </label>
-                                <input
-                                    type="number"
-                                    placeholder="12000000"
-                                    value={form.revenue}
-                                    onChange={e => setForm(f => ({ ...f, revenue: e.target.value }))}
-                                    className="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none"
-                                    style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }}
-                                    onFocus={e => (e.target.style.borderColor = "var(--accent)")}
-                                    onBlur={e => (e.target.style.borderColor = "var(--border)")}
-                                />
-                            </div>
-
-                            {/* Users */}
-                            <div>
-                                <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                                    Number of Active Users
-                                </label>
-                                <input
-                                    type="number"
-                                    placeholder="20000"
-                                    value={form.users}
-                                    onChange={e => setForm(f => ({ ...f, users: e.target.value }))}
-                                    className="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none"
-                                    style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }}
-                                    onFocus={e => (e.target.style.borderColor = "var(--accent)")}
-                                    onBlur={e => (e.target.style.borderColor = "var(--border)")}
-                                />
-                            </div>
-                        </div>
-
+                <div>
+                    <div className="flex gap-4 mb-6 border-b border-[var(--border)]">
                         <button
-                            type="submit"
-                            className="mt-6 w-full flex items-center justify-center gap-2 py-3 rounded-lg font-semibold text-white transition-all hover:opacity-90"
-                            style={{ background: "var(--accent)" }}
+                            onClick={() => setActiveTab("scan")}
+                            className={`pb-2 text-sm font-semibold transition-colors ${activeTab === "scan" ? "text-[var(--accent)] border-b-2 border-[var(--accent)]" : "text-[var(--muted-foreground)]"}`}
                         >
-                            <Scan size={16} /> Scan Repository
+                            Repository Scan
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("manual")}
+                            className={`pb-2 text-sm font-semibold transition-colors ${activeTab === "manual" ? "text-[var(--accent)] border-b-2 border-[var(--accent)]" : "text-[var(--muted-foreground)]"}`}
+                        >
+                            Manual Analysis
                         </button>
                     </div>
-                </form>
+
+                    {activeTab === "scan" ? (
+                        <ScanTab onScan={handleScan} error={error} loading={loading} />
+                    ) : (
+                        <ManualTab
+                            onSwitchToScan={() => setActiveTab("scan")}
+                            onAnalyze={handleAnalyze}
+                            error={error}
+                            loading={loading}
+                            geminiEnabled={false}
+                            geminiKey=""
+                            getCompany={getCompanyInternal}
+                        />
+                    )}
+                </div>
             )}
 
             {state === "scanning" && (
@@ -195,21 +156,37 @@ export default function ScanPage() {
                     style={{ background: "var(--card)", border: "1px solid var(--border)" }}
                 >
                     <Loader2 size={40} className="mx-auto mb-4 animate-spin" style={{ color: "var(--accent)" }} />
-                    <h3 className="font-bold text-lg mb-1">Scanning repository...</h3>
-                    <p className="text-sm mb-6" style={{ color: "var(--muted-foreground)" }}>{step}</p>
-
-                    {/* Progress bar */}
-                    <div className="w-full rounded-full h-1.5 mb-2" style={{ background: "var(--surface)" }}>
-                        <div
-                            className="h-1.5 rounded-full transition-all duration-500"
-                            style={{ width: `${progress}%`, background: "var(--accent)" }}
-                        />
+                    <h3 className="font-bold text-lg mb-1">
+                        {activeTab === "scan" ? "Scanning repository..." : "Analyzing vulnerabilities..."}
+                    </h3>
+                    <p className="text-sm mb-6" style={{ color: "var(--muted-foreground)" }}>
+                        {activeTab === "scan" ? "This may take a minute depending on repo size" : "Applying financial models and processing AI requests"}
+                    </p>
+                    <div className="w-full rounded-full h-1.5 mb-2 overflow-hidden" style={{ background: "var(--surface)" }}>
+                        <div className="h-full bg-[var(--accent)] animate-progress" style={{ width: "30%" }} />
                     </div>
-                    <span className="text-xs" style={{ color: "var(--muted)" }}>{progress}%</span>
                 </div>
             )}
 
-            {state === "done" && (
+            {state === "error" && (
+                <div
+                    className="rounded-xl p-8 text-center"
+                    style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+                >
+                    <AlertTriangle size={40} className="mx-auto mb-4 text-[var(--accent)]" />
+                    <h3 className="font-bold text-lg mb-2">Analysis Failed</h3>
+                    <p className="text-sm mb-6 text-[var(--muted-foreground)]">{error}</p>
+                    <button
+                        onClick={() => setState("idle")}
+                        className="px-6 py-2 rounded-lg font-semibold text-white"
+                        style={{ background: "var(--accent)" }}
+                    >
+                        Try Again
+                    </button>
+                </div>
+            )}
+
+            {state === "done" && results && (
                 <div>
                     {/* Success banner */}
                     <div
@@ -219,10 +196,10 @@ export default function ScanPage() {
                         <CheckCircle size={16} style={{ color: "var(--green)" }} />
                         <div>
                             <p className="text-sm font-semibold" style={{ color: "var(--green)" }}>
-                                Scan complete — {MOCK_SCAN_RESULT.scanDuration}
+                                Analysis Complete
                             </p>
                             <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                                Analysed {MOCK_SCAN_RESULT.totalFiles} files · Found {MOCK_SCAN_RESULT.vulnerabilities.length} vulnerabilities
+                                Found {results.results.length} vulnerabilities · Adjusted by AI: {results.gemini_enabled ? "Yes" : "No"}
                             </p>
                         </div>
                     </div>
@@ -230,10 +207,10 @@ export default function ScanPage() {
                     {/* Summary metrics */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                         {[
-                            { label: "Expected Loss", val: fmtMoney(MOCK_SCAN_RESULT.totalLoss), color: "var(--accent)" },
-                            { label: "Files Scanned", val: String(MOCK_SCAN_RESULT.totalFiles) },
-                            { label: "Vulnerabilities", val: String(MOCK_SCAN_RESULT.vulnerabilities.length) },
-                            { label: "Critical", val: String(MOCK_SCAN_RESULT.vulnerabilities.filter(v => v.severity === "critical").length), color: "var(--accent)" },
+                            { label: "Total Expected Loss", val: fmtMoney(results.total_expected_loss), color: "var(--accent)" },
+                            { label: "Vulnerabilities", val: String(results.results.length) },
+                            { label: "Total Fix Cost", val: fmtMoney(results.total_fix_cost) },
+                            { label: "Attack Chains", val: String(results.attack_chains.length), color: results.attack_chains.length > 0 ? "var(--accent)" : "var(--foreground)" },
                         ].map(m => (
                             <div key={m.label} className="rounded-xl p-4 text-center" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
                                 <div className="text-xl font-extrabold" style={{ color: m.color || "var(--foreground)" }}>{m.val}</div>
@@ -243,45 +220,51 @@ export default function ScanPage() {
                     </div>
 
                     {/* Vuln table */}
-                    <div className="rounded-xl overflow-hidden mb-5" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
+                    <div className="rounded-xl overflow-hidden mb-8" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
                         <div className="px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
-                            <h3 className="font-bold text-sm">Vulnerabilities Found</h3>
+                            <h3 className="font-bold text-sm">Action Items (Priority Ranked)</h3>
                         </div>
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                                    {["Vulnerability", "File", "Severity", "Expected Loss"].map(h => (
-                                        <th key={h} className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
-                                            {h}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {MOCK_SCAN_RESULT.vulnerabilities.map((v, i) => (
-                                    <tr key={v.id} className="hover:bg-zinc-900 transition-colors" style={{ borderBottom: i < MOCK_SCAN_RESULT.vulnerabilities.length - 1 ? "1px solid var(--border)" : undefined }}>
-                                        <td className="px-5 py-3 font-medium">{v.title}</td>
-                                        <td className="px-5 py-3 font-mono text-xs" style={{ color: "var(--muted-foreground)" }}>{v.file}</td>
-                                        <td className="px-5 py-3"><SevBadge sev={v.severity} /></td>
-                                        <td className="px-5 py-3 font-bold" style={{ color: "var(--accent)" }}>{fmtRange(v.expectedLoss)}</td>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                                        {["Bug Type", "Location", "Severity", "Expected Loss", "ROI"].map(h => (
+                                            <th key={h} className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
+                                                {h}
+                                            </th>
+                                        ))}
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {results.results.map((v, i) => (
+                                        <tr key={v.vulnerability_id} className="hover:bg-zinc-900 transition-colors" style={{ borderBottom: i < results.results.length - 1 ? "1px solid var(--border)" : undefined }}>
+                                            <td className="px-5 py-4 font-medium capitalize">{v.bug_type.replace(/_/g, " ")}</td>
+                                            <td className="px-5 py-4 font-mono text-xs" style={{ color: "var(--muted-foreground)" }}>{v.file}:{v.line}</td>
+                                            <td className="px-5 py-4"><SevBadge sev={v.severity} /></td>
+                                            <td className="px-5 py-3 font-bold" style={{ color: "var(--accent)" }}>{fmtMoney(v.expected_loss)}</td>
+                                            <td className="px-5 py-4 font-semibold text-[var(--green)]">{v.roi_of_fixing.toFixed(1)}x</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
-                    {/* Alert for unscanned vulns */}
-                    <div className="flex items-start gap-2 text-xs p-3 rounded-lg mb-5" style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.2)", color: "var(--muted-foreground)" }}>
-                        <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" style={{ color: "var(--yellow)" }} />
-                        <span>This is a mock scan using static demo data. In production, Semgrep would analyse your real code.</span>
-                    </div>
+                    {results.executive_summary && (
+                        <div className="rounded-xl p-6 mb-8" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
+                            <h3 className="font-bold text-sm mb-4">Executive Summary</h3>
+                            <div className="text-sm leading-relaxed whitespace-pre-wrap text-[var(--muted-foreground)]">
+                                {results.executive_summary}
+                            </div>
+                        </div>
+                    )}
 
                     <button
                         onClick={reset}
-                        className="px-5 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-zinc-800"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-zinc-800"
                         style={{ border: "1px solid var(--border)", color: "var(--muted-foreground)" }}
                     >
-                        ← Run Another Scan
+                        <ArrowLeft size={16} /> Run Another Scan
                     </button>
                 </div>
             )}

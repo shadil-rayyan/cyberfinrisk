@@ -340,7 +340,7 @@ export default function Results({ data, companyName, onReset }: ResultsProps) {
             </h3>
             <div id="vuln_list">
                 {results.map((r, i) => (
-                    <VulnCard key={r.id ?? i} result={r} />
+                    <VulnCard key={r.vulnerability_id ?? i} result={r} />
                 ))}
             </div>
 

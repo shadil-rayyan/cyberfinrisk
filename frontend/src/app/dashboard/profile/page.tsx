@@ -34,7 +34,7 @@ export default function ProfilePage() {
                         Manage your personal profile, security credentials, and API access.
                     </p>
                 </div>
-                <button 
+                <button
                     className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 text-white"
                     style={{ background: "var(--accent)" }}
                 >
@@ -45,13 +45,13 @@ export default function ProfilePage() {
             {/* General Profile */}
             <div className="rounded-xl overflow-hidden mb-8" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
                 <div className="px-6 py-5 flex items-center gap-2" style={{ borderBottom: "1px solid var(--border)" }}>
-                    <User size={18} style={{ color: "var(--muted-foreground)" }}/> 
+                    <User size={18} style={{ color: "var(--muted-foreground)" }} />
                     <h2 className="text-lg font-bold">Profile Details</h2>
                 </div>
-                
+
                 <div className="p-6">
                     <div className="flex items-start gap-6 mb-8">
-                        <div 
+                        <div
                             className="w-20 h-20 rounded-full flex items-center justify-center font-bold text-2xl flex-shrink-0"
                             style={{ background: "var(--surface2)", color: "var(--muted-foreground)" }}
                         >
@@ -63,7 +63,7 @@ export default function ProfilePage() {
                                 We use Gravatar linked to your email address, or you can upload a custom avatar.
                             </p>
                             <div className="flex gap-3">
-                                <button 
+                                <button
                                     className="px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-2 transition-colors hover:bg-zinc-800"
                                     style={{ border: "1px solid var(--border)" }}
                                 >
@@ -78,8 +78,8 @@ export default function ProfilePage() {
                             <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
                                 Full Name
                             </label>
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 value={form.name}
                                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                                 className="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none transition-colors"
@@ -92,8 +92,8 @@ export default function ProfilePage() {
                             <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
                                 Email Address
                             </label>
-                            <input 
-                                type="email" 
+                            <input
+                                type="email"
                                 value={form.email}
                                 disabled
                                 className="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none transition-colors opacity-70 cursor-not-allowed"
@@ -105,84 +105,21 @@ export default function ProfilePage() {
                 </div>
             </div>
 
-            {/* Security */}
-            <div className="rounded-xl overflow-hidden mb-8" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
-                <div className="px-6 py-5 flex items-center gap-2" style={{ borderBottom: "1px solid var(--border)" }}>
-                    <Shield size={18} style={{ color: "var(--muted-foreground)" }}/> 
-                    <h2 className="text-lg font-bold">Security</h2>
-                </div>
-                
-                <div className="p-6">
-                    <h3 className="text-sm font-semibold mb-4">Change Password</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <div>
-                            <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                                Current Password
-                            </label>
-                            <input 
-                                type="password" 
-                                value={form.currentPassword}
-                                onChange={e => setForm(f => ({ ...f, currentPassword: e.target.value }))}
-                                className="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none transition-colors"
-                                style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }}
-                                onFocus={e => e.target.style.borderColor = "var(--accent)"}
-                                onBlur={e => e.target.style.borderColor = "var(--border)"}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                                New Password
-                            </label>
-                            <input 
-                                type="password" 
-                                value={form.newPassword}
-                                onChange={e => setForm(f => ({ ...f, newPassword: e.target.value }))}
-                                className="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none transition-colors"
-                                style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }}
-                                onFocus={e => e.target.style.borderColor = "var(--accent)"}
-                                onBlur={e => e.target.style.borderColor = "var(--border)"}
-                            />
-                        </div>
-                    </div>
-                    <button 
-                        className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-zinc-800"
-                        style={{ border: "1px solid var(--border)" }}
-                    >
-                        Update Password
-                    </button>
-
-                    <div className="my-8" style={{ borderTop: "1px solid var(--border)" }} />
-
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-sm font-semibold mb-1">Two-Factor Authentication (2FA)</h3>
-                            <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Add an extra layer of security to your account.</p>
-                        </div>
-                        <button 
-                            className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors text-emerald-500 hover:bg-emerald-500/10"
-                            style={{ border: "1px solid rgba(16,185,129,0.3)" }}
-                        >
-                            Enable 2FA
-                        </button>
-                    </div>
-                </div>
-            </div>
-
             {/* Personal Access Tokens */}
             <div className="rounded-xl overflow-hidden mb-8" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
                 <div className="px-6 py-5 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
                     <div className="flex items-center gap-2">
-                        <Key size={18} style={{ color: "var(--muted-foreground)" }}/> 
+                        <Key size={18} style={{ color: "var(--muted-foreground)" }} />
                         <h2 className="text-lg font-bold">Personal Access Tokens</h2>
                     </div>
-                    <button 
+                    <button
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors hover:bg-zinc-800"
                         style={{ border: "1px solid var(--border)" }}
                     >
                         <Plus size={14} /> Generate Token
                     </button>
                 </div>
-                
+
                 <div className="p-0">
                     <p className="text-xs px-6 py-4 leading-relaxed" style={{ color: "var(--muted-foreground)", borderBottom: "1px solid var(--border)" }}>
                         Tokens you have generated that can be used to access the FinRisk API. Keep these secret.
@@ -198,8 +135,8 @@ export default function ProfilePage() {
                         </thead>
                         <tbody>
                             {MOCK_TOKENS.map((token, i) => (
-                                <tr 
-                                    key={token.id} 
+                                <tr
+                                    key={token.id}
                                     className="hover:bg-zinc-800/50 transition-colors"
                                     style={{ borderBottom: i < MOCK_TOKENS.length - 1 ? "1px solid var(--border)" : "none" }}
                                 >
@@ -207,7 +144,7 @@ export default function ProfilePage() {
                                         {token.name}
                                         <div className="text-[10px] mt-1 font-mono flex items-center gap-2" style={{ color: "var(--muted)" }}>
                                             fin_pat_•••••••
-                                            <button 
+                                            <button
                                                 onClick={() => copyToClipboard(token.id)}
                                                 className="hover:text-white transition-colors"
                                             >
@@ -218,7 +155,7 @@ export default function ProfilePage() {
                                     <td className="px-6 py-4" style={{ color: "var(--muted-foreground)" }}>{token.lastUsed}</td>
                                     <td className="px-6 py-4" style={{ color: "var(--muted-foreground)" }}>{token.expires}</td>
                                     <td className="px-6 py-4 text-right">
-                                        <button 
+                                        <button
                                             className="p-1.5 rounded-md transition-colors text-red-400 hover:bg-red-400/10 inline-flex items-center justify-center"
                                         >
                                             <Trash2 size={16} />

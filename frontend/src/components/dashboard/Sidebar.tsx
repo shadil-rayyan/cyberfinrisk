@@ -17,10 +17,12 @@ import {
     Check,
     ShieldAlert,
     Plus,
-    Building2
+    Building2,
+    LogIn
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ORGANIZATIONS } from "@/lib/mock-data";
+import { useAuth } from "@/context/AuthContext";
 
 const NAV_MAIN = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -37,6 +39,7 @@ const NAV_TEAM = [
 
 export default function Sidebar() {
     const pathname = usePathname();
+    const { user, loginWithGoogle, logout } = useAuth();
     const [teamOpen, setTeamOpen] = useState(false);
     const [activeOrg, setActiveOrg] = useState(ORGANIZATIONS[1]!); // Acme Corp
     const [activeTeam, setActiveTeam] = useState(ORGANIZATIONS[1]!.teams[0]!); // Frontend Team
@@ -195,22 +198,41 @@ export default function Sidebar() {
 
             {/* Bottom profile */}
             <div className="px-3 py-3" style={{ borderTop: "1px solid var(--border)" }}>
-                <Link 
-                    href="/dashboard/profile"
-                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-zinc-800 cursor-pointer transition-colors"
-                >
-                    <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                        style={{ background: "var(--surface2)" }}
+                {user ? (
+                    <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-zinc-800 transition-colors group">
+                        <Link href="/dashboard/profile" className="flex items-center gap-2.5 flex-1 min-w-0">
+                            {user.photoURL ? (
+                                <img src={user.photoURL} alt={user.displayName || "User"} className="w-6 h-6 rounded-full flex-shrink-0" />
+                            ) : (
+                                <div
+                                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                                    style={{ background: "var(--surface2)" }}
+                                >
+                                    <User size={12} style={{ color: "var(--muted)" }} />
+                                </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                                <div className="text-xs font-medium truncate">{user.displayName || user.email}</div>
+                                <div className="text-[11px]" style={{ color: "var(--muted)" }}>Pro Plan</div>
+                            </div>
+                        </Link>
+                        <button 
+                            onClick={() => logout()}
+                            className="p-1.5 rounded-md hover:bg-zinc-700 transition-colors"
+                            title="Log Out"
+                        >
+                            <LogOut size={13} style={{ color: "var(--muted)" }} />
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => loginWithGoogle()}
+                        className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors hover:bg-zinc-800 text-[var(--accent)] font-semibold"
                     >
-                        <User size={12} style={{ color: "var(--muted)" }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium truncate">demo@finrisk.app</div>
-                        <div className="text-[11px]" style={{ color: "var(--muted)" }}>Pro Plan</div>
-                    </div>
-                    <LogOut size={13} style={{ color: "var(--muted)" }} />
-                </Link>
+                        <LogIn size={15} />
+                        <span className="text-sm">Sign In</span>
+                    </button>
+                )}
             </div>
         </aside>
     );

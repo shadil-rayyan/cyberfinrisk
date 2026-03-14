@@ -30,7 +30,7 @@ export interface GeminiAnalysis {
 }
 
 export interface VulnerabilityResult {
-    id: string;
+    vulnerability_id: string;
     bug_type: string;
     file: string;
     line: number;
@@ -62,6 +62,8 @@ export interface ScanResults {
     executive_summary: string;
     total_expected_loss: number;
     total_fix_cost: number;
+    vulnerability_count: number;
+    filtered_count: number;
     gemini_enabled: boolean;
 }
 
