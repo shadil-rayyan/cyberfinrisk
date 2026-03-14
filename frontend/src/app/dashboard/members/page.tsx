@@ -6,7 +6,9 @@ import {
     MoreHorizontal, 
     Shield, 
     Mail,
-    Search
+    Search,
+    X,
+    Send
 } from "lucide-react";
 import { ORGANIZATIONS } from "@/lib/mock-data";
 
@@ -65,6 +67,9 @@ const TABS = ["All Members", "Admins", "Pending Invites"];
 export default function MembersPage() {
     const [activeTab, setActiveTab] = useState(TABS[0]);
     const [searchQuery, setSearchQuery] = useState("");
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [inviteRole, setInviteRole] = useState("Developer");
+    const [inviteEmail, setInviteEmail] = useState("");
     
     // In a real app, this would be the actual org from context/state
     const org = ORGANIZATIONS[1]!;
@@ -89,6 +94,7 @@ export default function MembersPage() {
                     </p>
                 </div>
                 <button
+                    onClick={() => setShowInviteModal(true)}
                     className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 text-white"
                     style={{ background: "var(--accent)" }}
                 >
@@ -230,6 +236,114 @@ export default function MembersPage() {
                     </table>
                 </div>
             </div>
+            {/* Invite Modal Overlay */}
+            {showInviteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    {/* Backdrop */}
+                    <div 
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+                        onClick={() => setShowInviteModal(false)}
+                    />
+                    
+                    {/* Modal Content */}
+                    <div 
+                        className="relative w-full max-w-md rounded-2xl overflow-hidden shadow-2xl flex flex-col"
+                        style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+                    >
+                        <div className="flex items-center justify-between p-5" style={{ borderBottom: "1px solid var(--border)" }}>
+                            <h2 className="text-lg font-bold flex items-center gap-2">
+                                <UserPlus size={18} style={{ color: "var(--accent)" }} /> 
+                                Invite to {org.name}
+                            </h2>
+                            <button 
+                                onClick={() => setShowInviteModal(false)}
+                                className="p-1.5 rounded-md hover:bg-zinc-800 transition-colors"
+                                style={{ color: "var(--muted-foreground)" }}
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6">
+                            <div className="mb-5">
+                                <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                                    Email Address
+                                </label>
+                                <input 
+                                    type="email" 
+                                    placeholder="colleague@example.com"
+                                    value={inviteEmail}
+                                    onChange={(e) => setInviteEmail(e.target.value)}
+                                    className="w-full rounded-lg px-3.5 py-2.5 text-sm outline-none transition-colors"
+                                    style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+                                    onFocus={e => e.target.style.borderColor = "var(--accent)"}
+                                    onBlur={e => e.target.style.borderColor = "var(--border)"}
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div className="mb-6">
+                                <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                                    Role
+                                </label>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {[
+                                        { id: "Admin", desc: "Can manage billing, settings, and all projects." },
+                                        { id: "Developer", desc: "Can view and scan projects but cannot change billing." },
+                                        { id: "Viewer", desc: "Can only view reports and scan results." },
+                                    ].map(role => (
+                                        <div 
+                                            key={role.id}
+                                            onClick={() => setInviteRole(role.id)}
+                                            className="flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors border"
+                                            style={{ 
+                                                background: inviteRole === role.id ? "rgba(230,57,70,0.05)" : "var(--surface)",
+                                                borderColor: inviteRole === role.id ? "var(--accent)" : "var(--border)"
+                                            }}
+                                        >
+                                            <div className="mt-0.5">
+                                                <div 
+                                                    className="w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors"
+                                                    style={{ 
+                                                        borderColor: inviteRole === role.id ? "var(--accent)" : "var(--muted)",
+                                                    }}
+                                                >
+                                                    {inviteRole === role.id && <div className="w-2 h-2 rounded-full" style={{ background: "var(--accent)" }} />}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-semibold">{role.id}</div>
+                                                <div className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>{role.desc}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-5 flex justify-end gap-3" style={{ borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
+                            <button 
+                                onClick={() => setShowInviteModal(false)}
+                                className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-zinc-800"
+                                style={{ border: "1px solid var(--border)", color: "var(--foreground)" }}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={() => setShowInviteModal(false)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 text-white"
+                                style={{ 
+                                    background: inviteEmail ? "var(--accent)" : "var(--muted)",
+                                    cursor: inviteEmail ? "pointer" : "not-allowed"
+                                }}
+                                disabled={!inviteEmail}
+                            >
+                                <Send size={14} /> Send Invite
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             
         </div>
     );

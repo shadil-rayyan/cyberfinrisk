@@ -16,6 +16,8 @@ import {
     ChevronDown,
     Check,
     ShieldAlert,
+    Plus,
+    Building2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ORGANIZATIONS } from "@/lib/mock-data";
@@ -126,6 +128,24 @@ export default function Sidebar() {
                                 </div>
                             </div>
                         ))}
+                        <div className="mt-2 pt-2 px-2" style={{ borderTop: "1px solid var(--border)" }}>
+                            <Link 
+                                href="/dashboard/team/new"
+                                onClick={() => setTeamOpen(false)}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-md hover:bg-zinc-700 transition-colors"
+                                style={{ color: "var(--muted-foreground)" }}
+                            >
+                                <Plus size={14} /> Create Team
+                            </Link>
+                            <Link 
+                                href="/dashboard/org/new"
+                                onClick={() => setTeamOpen(false)}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-md hover:bg-zinc-700 transition-colors mb-1"
+                                style={{ color: "var(--muted-foreground)" }}
+                            >
+                                <Building2 size={14} /> Create Organization
+                            </Link>
+                        </div>
                     </div>
                 )}
             </div>
@@ -175,7 +195,10 @@ export default function Sidebar() {
 
             {/* Bottom profile */}
             <div className="px-3 py-3" style={{ borderTop: "1px solid var(--border)" }}>
-                <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-zinc-800 cursor-pointer transition-colors">
+                <Link 
+                    href="/dashboard/profile"
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-zinc-800 cursor-pointer transition-colors"
+                >
                     <div
                         className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                         style={{ background: "var(--surface2)" }}
@@ -187,7 +210,7 @@ export default function Sidebar() {
                         <div className="text-[11px]" style={{ color: "var(--muted)" }}>Pro Plan</div>
                     </div>
                     <LogOut size={13} style={{ color: "var(--muted)" }} />
-                </div>
+                </Link>
             </div>
         </aside>
     );
