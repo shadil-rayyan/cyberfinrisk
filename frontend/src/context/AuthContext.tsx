@@ -24,8 +24,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
             setUser(user);
+            if (user) {
+                // Sync user with backend
+                try {
+                    await fetch("http://localhost:8000/api/user", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            uuid: user.uid,
+                            email: user.email,
+                            full_name: user.displayName,
+                        }),
+                    });
+                } catch (error) {
+                    console.error("Failed to sync user with backend", error);
+                }
+            }
             setLoading(false);
         });
 

@@ -1,8 +1,9 @@
 # database.py
 import os
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Column, String, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.sql import func
 from motor.motor_asyncio import AsyncIOMotorClient
 
 # Load environment variables

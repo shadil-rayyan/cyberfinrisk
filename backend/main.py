@@ -2,11 +2,13 @@ import json, os, shutil
 from dotenv import load_dotenv
 load_dotenv()
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from contextlib import asynccontextmanager
 from logging_config import setup_logging
 
 # Initialize structured logging
@@ -26,7 +28,32 @@ from engine.attack_chain import find_attack_chains
 from engine.business_brief import generate_business_brief, generate_executive_summary
 from prometheus_fastapi_instrumentator import Instrumentator
 
-app = FastAPI(title="Vulnerability Business Impact Engine", version="3.0.0")
+from models.db import (
+    Base, 
+    pg_engine, 
+    get_pg_db, 
+    connect_to_mongo, 
+    close_mongo_connection,
+    User,
+    PersonalAccessToken
+)
+
+# Manage Startup and Shutdown events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Ensure DB tables exist
+    Base.metadata.create_all(bind=pg_engine)
+    # Connect to Mongo
+    await connect_to_mongo()
+    yield
+    # Shutdown
+    await close_mongo_connection()
+
+app = FastAPI(
+    title="Vulnerability Business Impact Engine", 
+    version="3.0.0",
+    lifespan=lifespan
+)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # Instrument the app for Prometheus
@@ -209,3 +236,100 @@ async def scan_repo(req: ScanRequest):
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "3.0.0"}
+
+# ==========================================
+# User Profile Endpoints
+# ==========================================
+
+class UserProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+
+class TokenCreate(BaseModel):
+    name: str
+    token: Optional[str] = None  # If not provided, we generate one
+
+@app.get("/api/user/{uuid}")
+async def get_user_profile(uuid: str, db: Session = Depends(get_pg_db)):
+    user = db.query(User).filter(User.uuid == uuid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    tokens = [{
+        "id": t.id,
+        "name": t.name,
+        "token": t.token,
+        "created_at": str(t.created_at)
+    } for t in user.tokens]
+    
+    return {
+        "uuid": user.uuid,
+        "email": user.email,
+        "full_name": user.full_name,
+        "tokens": tokens
+    }
+
+@app.post("/api/user")
+async def sync_user_profile(user_data: dict, db: Session = Depends(get_pg_db)):
+    """Sync user on login (Firebase UUID)"""
+    uuid = user_data.get("uuid")
+    email = user_data.get("email")
+    
+    if not uuid or not email:
+        raise HTTPException(status_code=400, detail="UUID and Email required")
+        
+    user = db.query(User).filter(User.uuid == uuid).first()
+    if not user:
+        user = User(
+            uuid=uuid,
+            email=email,
+            full_name=user_data.get("full_name")
+        )
+        db.add(user)
+        db.commit()
+    else:
+        # Update email if changed or other basic fields from Gmail
+        user.email = email
+        if user_data.get("full_name") and not user.full_name:
+             user.full_name = user_data.get("full_name")
+        db.commit()
+        
+    return {"status": "success", "user": {"uuid": user.uuid, "email": user.email}}
+
+@app.patch("/api/user/{uuid}")
+async def update_user_profile(uuid: str, update_data: UserProfileUpdate, db: Session = Depends(get_pg_db)):
+    user = db.query(User).filter(User.uuid == uuid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if update_data.full_name is not None:
+        user.full_name = update_data.full_name
+        
+    db.commit()
+    return {"status": "success"}
+
+@app.post("/api/user/{uuid}/tokens")
+async def create_token(uuid: str, req: TokenCreate, db: Session = Depends(get_pg_db)):
+    import secrets
+    user = db.query(User).filter(User.uuid == uuid).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    token_val = req.token if req.token else f"fin_pat_{secrets.token_hex(16)}"
+    
+    new_token = PersonalAccessToken(
+        user_uuid=uuid,
+        name=req.name,
+        token=token_val
+    )
+    db.add(new_token)
+    db.commit()
+    return {"id": new_token.id, "name": new_token.name, "token": new_token.token}
+
+@app.delete("/api/user/tokens/{token_id}")
+async def delete_token(token_id: int, db: Session = Depends(get_pg_db)):
+    token = db.query(PersonalAccessToken).filter(PersonalAccessToken.id == token_id).first()
+    if not token:
+        raise HTTPException(status_code=404, detail="Token not found")
+    db.delete(token)
+    db.commit()
+    return {"status": "success"}
