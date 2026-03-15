@@ -35,8 +35,11 @@ from models.db import (
     connect_to_mongo, 
     close_mongo_connection,
     User,
-    PersonalAccessToken
+    PersonalAccessToken,
+    Organization,
+    OrganizationMember
 )
+from models.org_schemas import OrganizationCreate, OrganizationResponse
 
 # Manage Startup and Shutdown events
 @asynccontextmanager
@@ -333,3 +336,51 @@ async def delete_token(token_id: int, db: Session = Depends(get_pg_db)):
     db.delete(token)
     db.commit()
     return {"status": "success"}
+
+# ==========================================
+# Organization Endpoints
+# ==========================================
+
+@app.get("/api/orgs", response_model=List[OrganizationResponse])
+async def list_organizations(user_uuid: Optional[str] = None, db: Session = Depends(get_pg_db)):
+    if user_uuid:
+        # Get orgs where user is a member
+        orgs = db.query(Organization).join(OrganizationMember).filter(OrganizationMember.user_uuid == user_uuid).all()
+        return orgs
+    return db.query(Organization).all()
+
+@app.post("/api/orgs", response_model=OrganizationResponse)
+async def create_organization(req: OrganizationCreate, db: Session = Depends(get_pg_db)):
+    # Check if slug exists
+    existing = db.query(Organization).filter(Organization.slug == req.slug).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Organization slug already taken")
+    
+    # Create org
+    new_org = Organization(
+        name=req.name,
+        slug=req.slug,
+        plan=req.plan,
+        creator_uuid=req.creator_uuid
+    )
+    db.add(new_org)
+    db.flush() # Get the ID
+    
+    # Add creator as admin member
+    membership = OrganizationMember(
+        org_id=new_org.id,
+        user_uuid=req.creator_uuid,
+        role="admin"
+    )
+    db.add(membership)
+    db.commit()
+    db.refresh(new_org)
+    
+    return new_org
+
+@app.get("/api/orgs/{slug}", response_model=OrganizationResponse)
+async def get_organization(slug: str, db: Session = Depends(get_pg_db)):
+    org = db.query(Organization).filter(Organization.slug == slug).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return org

@@ -51,4 +51,21 @@ export const api = {
             body: JSON.stringify(payload),
         });
     },
+
+    async createOrganization(payload: {
+        name: string;
+        slug: string;
+        plan: string;
+        creator_uuid: string;
+    }): Promise<any> {
+        return fetchAPI("/api/orgs", {
+            method: "POST",
+            body: JSON.stringify(payload),
+        });
+    },
+
+    async listOrganizations(user_uuid?: string): Promise<any[]> {
+        const endpoint = user_uuid ? `/api/orgs?user_uuid=${user_uuid}` : "/api/orgs";
+        return fetchAPI(endpoint);
+    },
 };

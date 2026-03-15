@@ -2,21 +2,53 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Building2, Shield, CheckCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Building2, Shield, CheckCircle, Loader2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 
 export default function CreateOrganizationPage() {
+    const { user } = useAuth();
+    const router = useRouter();
     const [form, setForm] = useState({
         name: "",
         slug: "",
     });
 
     const [selectedPlan, setSelectedPlan] = useState<"free" | "pro" | "enterprise">("pro");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const PLANS = [
         { id: "free", name: "Free", price: "$0", desc: "For individuals", features: ["1 Project", "100 Scans/mo", "Basic Rules"] },
         { id: "pro", name: "Pro", price: "$249", desc: "For teams", features: ["25 Projects", "1k Scans/mo", "FinRisk Engine"] },
         { id: "enterprise", name: "Enterprise", price: "Custom", desc: "For large orgs", features: ["Unlimited", "Custom Rules", "SSO & Audit Logs"] },
     ] as const;
+
+    const handleCreate = async () => {
+        if (!form.name || form.name.length < 3) return;
+        if (!user) {
+            setError("You must be logged in to create an organization.");
+            return;
+        }
+
+        setLoading(true);
+        setError(null);
+
+        try {
+            await api.createOrganization({
+                name: form.name,
+                slug: form.slug,
+                plan: selectedPlan,
+                creator_uuid: user.uid
+            });
+            router.push("/dashboard");
+        } catch (err: any) {
+            setError(err.message || "Failed to create organization");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="px-6 py-12 max-w-3xl mx-auto min-h-screen flex flex-col justify-center">
@@ -38,6 +70,12 @@ export default function CreateOrganizationPage() {
                 </p>
             </div>
 
+            {error && (
+                <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
+                    {error}
+                </div>
+            )}
+
             <div className="rounded-xl overflow-hidden mb-8 p-6 sm:p-8" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
                 <div className="space-y-6">
                     <div>
@@ -56,6 +94,7 @@ export default function CreateOrganizationPage() {
                             style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }}
                             onFocus={e => e.target.style.borderColor = "var(--accent)"}
                             onBlur={e => e.target.style.borderColor = "var(--border)"}
+                            disabled={loading}
                         />
                     </div>
 
@@ -74,6 +113,7 @@ export default function CreateOrganizationPage() {
                                 onChange={e => setForm(f => ({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '') }))}
                                 className="w-full bg-transparent px-4 py-3 text-sm outline-none"
                                 style={{ color: "var(--foreground)" }}
+                                disabled={loading}
                             />
                         </div>
                     </div>
@@ -85,11 +125,12 @@ export default function CreateOrganizationPage() {
                 {PLANS.map(plan => (
                     <div 
                         key={plan.id}
-                        onClick={() => setSelectedPlan(plan.id)}
+                        onClick={() => !loading && setSelectedPlan(plan.id)}
                         className="rounded-xl p-5 cursor-pointer transition-all hover:border-zinc-500 relative overflow-hidden"
                         style={{ 
                             background: "var(--card)", 
                             border: `2px solid ${selectedPlan === plan.id ? 'var(--accent)' : 'var(--border)'}`,
+                            opacity: loading ? 0.7 : 1
                         }}
                     >
                         {selectedPlan === plan.id && (
@@ -119,13 +160,18 @@ export default function CreateOrganizationPage() {
                 <span className="text-sm" style={{ color: "var(--muted-foreground)" }}>
                     You will become the Owner of this organization.
                 </span>
-                <Link 
-                    href="/dashboard"
-                    className="px-6 py-3 rounded-lg text-sm font-semibold transition-all hover:opacity-90 text-white"
-                    style={{ background: form.name.length > 2 ? "var(--accent)" : "var(--muted)", cursor: form.name.length > 2 ? "pointer" : "not-allowed" }}
+                <button 
+                    onClick={handleCreate}
+                    disabled={loading || form.name.length < 3}
+                    className="px-6 py-3 rounded-lg text-sm font-semibold transition-all hover:opacity-90 text-white flex items-center gap-2"
+                    style={{ 
+                        background: form.name.length > 2 ? "var(--accent)" : "var(--muted)", 
+                        cursor: (loading || form.name.length < 3) ? "not-allowed" : "pointer" 
+                    }}
                 >
-                    Create Organization
-                </Link>
+                    {loading && <Loader2 size={16} className="animate-spin" />}
+                    {loading ? "Creating..." : "Create Organization"}
+                </button>
             </div>
 
         </div>
