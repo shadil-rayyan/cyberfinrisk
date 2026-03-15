@@ -297,44 +297,62 @@ export const COMPLIANCE_FINES = [
 
 // ── Organizations & Teams ─────────────────────────────────────────────────────
 
-export interface Team {
+export interface OrgTeam {
     id: string;
     name: string;
 }
 
-export interface Organization {
+export interface OrgGroup {
+    id: string;
+    name: string;
+    teams: OrgTeam[];
+}
+
+export interface Tenant {
     id: string;
     name: string;
     plan: string;
-    teams: Team[];
+    groups: OrgGroup[];
 }
 
-export const ORGANIZATIONS: Organization[] = [
+export const TENANTS: Tenant[] = [
     {
-        id: "org-personal",
+        id: "tenant-personal",
         name: "Personal",
         plan: "Free",
-        teams: [
-            { id: "personal-projects", name: "Personal Projects" }
+        groups: [
+            {
+                id: "group-personal-default",
+                name: "Personal Projects",
+                teams: [
+                    { id: "team-personal-1", name: "Hobby projects" },
+                    { id: "team-personal-2", name: "Open Source" }
+                ]
+            }
         ]
     },
     {
-        id: "org-acme",
-        name: "Acme Corp",
-        plan: "Pro",
-        teams: [
-            { id: "acme-frontend", name: "Frontend Team" },
-            { id: "acme-backend", name: "Backend Team" }
-        ]
-    },
-    {
-        id: "org-security",
-        name: "Security Research",
+        id: "tenant-acme",
+        name: "Acme Corporation",
         plan: "Enterprise",
-        teams: [
-            { id: "sec-red", name: "Red Team" },
-            { id: "sec-blue", name: "Blue Team" },
-            { id: "sec-auditors", name: "Internal Auditors" }
+        groups: [
+            {
+                id: "group-engineering",
+                name: "Engineering Division",
+                teams: [
+                    { id: "team-frontend", name: "Frontend Platform" },
+                    { id: "team-backend", name: "Backend Services" },
+                    { id: "team-mobile", name: "Mobile App" }
+                ]
+            },
+            {
+                id: "group-security",
+                name: "Security Labs",
+                teams: [
+                    { id: "team-red", name: "Red Team Ops" },
+                    { id: "team-blue", name: "Blue Team Analytics" }
+                ]
+            }
         ]
     }
 ];

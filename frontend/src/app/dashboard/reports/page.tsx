@@ -7,6 +7,7 @@ import {
 import { DollarSign, TrendingDown, ShieldAlert, FileText } from "lucide-react";
 import { VULNERABILITIES, BREACH_COST, DOWNTIME_ESTIMATE, COMPLIANCE_FINES } from "@/lib/mock-data";
 import { fmtMoney } from "@/lib/utils";
+import TopBar from "@/components/dashboard/TopBar";
 
 const PIE_COLORS = ["#e63946", "#f97316", "#eab308", "#3b82f6", "#8b5cf6"];
 const TOTAL_LOSS = VULNERABILITIES.reduce((s, v) => s + v.expectedLoss, 0);
@@ -27,22 +28,25 @@ function ChartTooltip({ active, payload, label }: {
 
 export default function ReportsPage() {
     return (
-        <div className="px-6 md:px-10 py-8 max-w-7xl">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-8">
-                <div>
+        <div className="flex flex-col h-full">
+            <TopBar 
+                action={
+                    <button
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors hover:bg-zinc-800"
+                        style={{ border: "1px solid var(--border)", color: "var(--foreground)" }}
+                    >
+                        <FileText size={14} /> Export PDF
+                    </button>
+                }
+            />
+            <div className="px-6 md:px-10 py-8 max-w-7xl mx-auto w-full">
+                {/* Header */}
+                <div className="mb-8">
                     <h1 className="text-2xl font-extrabold tracking-tight mb-1">Financial Risk Report</h1>
                     <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
                         Acme Corp · Generated March 9, 2026
                     </p>
                 </div>
-                <button
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-zinc-800"
-                    style={{ border: "1px solid var(--border)", color: "var(--muted-foreground)" }}
-                >
-                    <FileText size={14} /> Export PDF
-                </button>
-            </div>
 
             {/* Summary cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -196,6 +200,7 @@ export default function ReportsPage() {
                     </div>
                 ))}
             </div>
+        </div>
         </div>
     );
 }

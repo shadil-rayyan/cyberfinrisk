@@ -7,6 +7,7 @@ import ManualTab from "@/components/ManualTab";
 import { api } from "@/lib/api";
 import { ScanResults, CompanyContext, VulnInput } from "@/lib/types";
 import { fmtMoney } from "@/lib/utils";
+import TopBar from "@/components/dashboard/TopBar";
 
 type ScanState = "idle" | "scanning" | "done" | "error";
 
@@ -109,46 +110,52 @@ export default function ScanPage() {
     }
 
     return (
-        <div className="px-6 md:px-10 py-8 max-w-4xl">
-            <div className="mb-8">
-                <h1 className="text-2xl font-extrabold tracking-tight mb-1">Security Engine</h1>
-                <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-                    Translate vulnerabilities into financial risk using static analysis and AI
-                </p>
-            </div>
-
-            {state === "idle" && (
-                <div>
-                    <div className="flex gap-4 mb-6 border-b border-[var(--border)]">
-                        <button
-                            onClick={() => setActiveTab("scan")}
-                            className={`pb-2 text-sm font-semibold transition-colors ${activeTab === "scan" ? "text-[var(--accent)] border-b-2 border-[var(--accent)]" : "text-[var(--muted-foreground)]"}`}
-                        >
-                            Repository Scan
-                        </button>
-                        <button
-                            onClick={() => setActiveTab("manual")}
-                            className={`pb-2 text-sm font-semibold transition-colors ${activeTab === "manual" ? "text-[var(--accent)] border-b-2 border-[var(--accent)]" : "text-[var(--muted-foreground)]"}`}
-                        >
-                            Manual Analysis
-                        </button>
-                    </div>
-
-                    {activeTab === "scan" ? (
-                        <ScanTab onScan={handleScan} error={error} loading={loading} />
-                    ) : (
-                        <ManualTab
-                            onSwitchToScan={() => setActiveTab("scan")}
-                            onAnalyze={handleAnalyze}
-                            error={error}
-                            loading={loading}
-                            geminiEnabled={false}
-                            geminiKey=""
-                            getCompany={getCompanyInternal}
-                        />
-                    )}
+        <div className="flex flex-col h-full">
+            <TopBar 
+                action={
+                    state === "idle" && (
+                        <div className="flex bg-zinc-900 rounded-md p-0.5 border border-zinc-800">
+                            <button
+                                onClick={() => setActiveTab("scan")}
+                                className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${activeTab === "scan" ? "bg-zinc-700 text-white shadow-sm" : "text-zinc-400 hover:text-white"}`}
+                            >
+                                Repository Scan
+                            </button>
+                            <button
+                                onClick={() => setActiveTab("manual")}
+                                className={`px-3 py-1 text-xs font-semibold rounded-sm transition-colors ${activeTab === "manual" ? "bg-zinc-700 text-white shadow-sm" : "text-zinc-400 hover:text-white"}`}
+                            >
+                                Manual Analysis
+                            </button>
+                        </div>
+                    )
+                }
+            />
+            <div className="px-6 md:px-10 py-8 max-w-4xl mx-auto w-full">
+                <div className="mb-8">
+                    <h1 className="text-2xl font-extrabold tracking-tight mb-1">Security Engine</h1>
+                    <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+                        Translate vulnerabilities into financial risk using static analysis and AI
+                    </p>
                 </div>
-            )}
+
+                {state === "idle" && (
+                    <div>
+                        {activeTab === "scan" ? (
+                            <ScanTab onScan={handleScan} error={error} loading={loading} />
+                        ) : (
+                            <ManualTab
+                                onSwitchToScan={() => setActiveTab("scan")}
+                                onAnalyze={handleAnalyze}
+                                error={error}
+                                loading={loading}
+                                geminiEnabled={false}
+                                geminiKey=""
+                                getCompany={getCompanyInternal}
+                            />
+                        )}
+                    </div>
+                )}
 
             {state === "scanning" && (
                 <div
@@ -268,6 +275,7 @@ export default function ScanPage() {
                     </button>
                 </div>
             )}
+        </div>
         </div>
     );
 }

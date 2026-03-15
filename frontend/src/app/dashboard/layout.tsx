@@ -1,4 +1,5 @@
 import Sidebar from "@/components/dashboard/Sidebar";
+import { OrgProvider } from "@/context/OrgContext";
 
 export default function DashboardLayout({
     children,
@@ -6,11 +7,15 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div className="flex h-screen overflow-hidden" style={{ background: "var(--background)" }}>
-            <Sidebar />
-            <main className="flex-1 overflow-y-auto">
-                {children}
-            </main>
-        </div>
+        <OrgProvider>
+            <div className="flex h-screen overflow-hidden" style={{ background: "var(--background)" }}>
+                <Sidebar />
+                <main className="flex-1 flex flex-col overflow-y-auto">
+                    {children}
+                </main>
+            </div>
+        </OrgProvider>
     );
 }
+
+

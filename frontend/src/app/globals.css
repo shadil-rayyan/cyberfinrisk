@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 /* ── FinRisk design tokens ── */
@@ -7,7 +8,7 @@
   --card: #111113;
   --card-foreground: #fafafa;
   --border: rgba(255, 255, 255, 0.08);
-  --muted: #71717a;
+  --muted: #52525b;
   --muted-foreground: #a1a1aa;
   --accent: #e63946;
   --accent-hover: #c1121f;
@@ -17,8 +18,10 @@
   --orange: #f97316;
   --surface: #18181b;
   --surface2: #27272a;
-  --radius: 0.75rem;
-  --sidebar-width: 240px;
+  --radius: 0.625rem;
+  --sidebar-width: 220px;
+  --topbar-height: 44px;
+  --sidebar-group-label: #52525b;
 }
 
 /* ── Reset & base ── */
@@ -36,10 +39,11 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   margin: 0;
 }
+
 
 /* ── Loading step styles (VFIE scanner) ── */
 .loading-step {

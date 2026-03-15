@@ -60,20 +60,33 @@ function ChartTooltip({ active, payload, label }: {
     );
 }
 
+import TopBar from "@/components/dashboard/TopBar";
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
     const m = DASHBOARD_METRICS;
 
     return (
-        <div className="px-6 md:px-10 py-8 max-w-7xl">
-            {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-2xl font-extrabold tracking-tight mb-1">Dashboard</h1>
-                <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-                    Security risk overview for Acme Corp
-                </p>
-            </div>
+        <div className="flex flex-col h-full">
+            <TopBar 
+                action={
+                    <button 
+                        className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all hover:opacity-90 text-white"
+                        style={{ background: "var(--accent)" }}
+                    >
+                        <ShieldAlert size={14} /> Start a new scan
+                    </button>
+                }
+            />
+            <div className="px-6 md:px-10 py-8 max-w-7xl mx-auto w-full">
+                {/* Header */}
+                <div className="mb-8">
+                    <h1 className="text-2xl font-extrabold tracking-tight mb-1">Dashboard</h1>
+                    <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+                        Security risk overview for Acme Corp
+                    </p>
+                </div>
 
             {/* Metric cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -207,6 +220,7 @@ export default function DashboardPage() {
                     ))}
                 </div>
             </div>
+        </div>
         </div>
     );
 }

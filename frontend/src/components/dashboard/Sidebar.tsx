@@ -1,52 +1,158 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
     LayoutDashboard,
     FolderOpen,
     Scan,
-    FileText,
     Settings,
     Users,
-    CreditCard,
     LogOut,
     User,
-    ChevronDown,
-    Check,
-    ShieldAlert,
-    Plus,
-    Building2,
-    LogIn
+    LogIn,
+    ArrowRightLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ORGANIZATIONS } from "@/lib/mock-data";
+import { TENANTS } from "@/lib/mock-data";
 import { useAuth } from "@/context/AuthContext";
+import { useOrg } from "@/context/OrgContext";
 
-const NAV_MAIN = [
+const NAV_ITEMS = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/dashboard/projects", icon: FolderOpen, label: "Projects" },
-    { href: "/dashboard/scan", icon: Scan, label: "Scans" },
-    { href: "/dashboard/reports", icon: FileText, label: "Reports" },
+    { href: "/dashboard/scan", icon: Scan, label: "Integrations" },
+    { href: "/dashboard/members", icon: Users, label: "Members" },
+    { href: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];
 
-const NAV_TEAM = [
-    { href: "/dashboard/settings", icon: Settings, label: "Org Settings" },
-    { href: "/dashboard/members", icon: Users, label: "Members" },
-    { href: "/dashboard/billing", icon: CreditCard, label: "Billing" },
-];
+/** Small uppercase section label — identical to Snyk's TENANT/GROUP/ORGANIZATION labels */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+    return (
+        <p
+            className="text-[10px] font-semibold uppercase tracking-widest px-3 mb-1 mt-3 select-none"
+            style={{ color: "var(--sidebar-group-label)" }}
+        >
+            {children}
+        </p>
+    );
+}
+
+/** Clean switcher button for Tenant/Group/Org matching Snyk */
+function SwitcherItem({ name, onClick, isOpen }: { name: string; onClick?: () => void; isOpen?: boolean }) {
+    return (
+        <button 
+            onClick={onClick}
+            className={cn(
+                "w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-left transition-colors",
+                isOpen ? "bg-white/5" : "hover:bg-white/5"
+            )}
+        >
+            <span
+                className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                style={{ background: "#d946ef" }} // Snyk pink color
+            >
+                {name[0]?.toUpperCase()}
+            </span>
+            <span className="text-sm font-medium flex-1 truncate" style={{ color: "var(--foreground)" }}>
+                {name}
+            </span>
+            <ArrowRightLeft size={12} className="flex-shrink-0" style={{ color: "var(--muted-foreground)" }} />
+        </button>
+    );
+}
+
+/** A sidebar nav link item */
+function NavItem({
+    href,
+    icon: Icon,
+    label,
+    active,
+}: {
+    href: string;
+    icon: React.ElementType;
+    label: string;
+    active: boolean;
+}) {
+    return (
+        <Link
+            href={href}
+            className={cn(
+                "flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[13px] font-medium mb-0.5 transition-colors",
+                active ? "text-white" : "hover:bg-white/5"
+            )}
+            style={
+                active
+                    ? { background: "#4c1d95" } // Snyk active dark purple
+                    : { color: "var(--muted-foreground)" }
+            }
+        >
+            <Icon size={14} className="flex-shrink-0" />
+            {label}
+        </Link>
+    );
+}
 
 export default function Sidebar() {
     const pathname = usePathname();
     const { user, loginWithGoogle, logout } = useAuth();
-    const [teamOpen, setTeamOpen] = useState(false);
-    const [activeOrg, setActiveOrg] = useState(ORGANIZATIONS[1]!); // Acme Corp
-    const [activeTeam, setActiveTeam] = useState(ORGANIZATIONS[1]!.teams[0]!); // Frontend Team
+    const { activeTenant, setActiveTenant, activeGroup, setActiveGroup, activeOrg, setActiveOrg } = useOrg();
+    
+    // State for interactive dropdowns
+    const [activeDropdown, setActiveDropdown] = useState<"tenant" | "group" | "org" | null>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setActiveDropdown(null);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     function isActive(href: string) {
         if (href === "/dashboard") return pathname === "/dashboard";
         return pathname.startsWith(href);
+    }
+
+    // Helper for rendering the floating dropdown menu
+    function DropdownMenu({ 
+        items, 
+        onSelect, 
+        activeId 
+    }: { 
+        items: { id: string; name: string }[]; 
+        onSelect: (item: any) => void;
+        activeId: string;
+    }) {
+        return (
+            <div 
+                ref={dropdownRef}
+                className="absolute left-2 right-2 mt-1 z-50 rounded-md border shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+                style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+            >
+                <div className="max-h-[250px] overflow-y-auto py-1">
+                    {items.map(item => (
+                        <button
+                            key={item.id}
+                            onClick={() => {
+                                onSelect(item);
+                                setActiveDropdown(null);
+                            }}
+                            className={cn(
+                                "w-full flex items-center justify-between px-3 py-2 text-[13px] text-left transition-colors hover:bg-white/5",
+                                activeId === item.id ? "text-white font-medium" : "text-[var(--muted-foreground)]"
+                            )}
+                        >
+                            <span className="truncate">{item.name}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -58,178 +164,121 @@ export default function Sidebar() {
                 borderRight: "1px solid var(--border)",
             }}
         >
-            {/* Logo */}
+            {/* ── Logo ── */}
             <div
-                className="flex items-center gap-2.5 px-4 py-4"
+                className="flex items-center gap-2 px-3 py-3"
                 style={{ borderBottom: "1px solid var(--border)" }}
             >
                 <div
-                    className="w-7 h-7 rounded-md flex items-center justify-center font-black text-sm text-white flex-shrink-0"
-                    style={{ background: "var(--accent)" }}
+                    className="w-5 h-5 rounded flex items-center justify-center font-black text-xs text-white flex-shrink-0"
+                    style={{ background: "#d946ef" }} // Logo color similar to context
                 >
-                    F
+                    S
                 </div>
-                <span className="font-bold text-sm tracking-tight">FinRisk</span>
-                <ShieldAlert size={14} className="ml-auto" style={{ color: "var(--muted)" }} />
+                <span className="font-bold text-sm tracking-tight text-white">snyk</span>
             </div>
 
-            {/* Team Selector */}
-            <div className="px-3 py-3" style={{ borderBottom: "1px solid var(--border)" }}>
-                <button
-                    onClick={() => setTeamOpen(o => !o)}
-                    className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-sm transition-colors hover:bg-zinc-800"
-                >
-                    <span
-                        className="w-5 h-5 rounded flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                        style={{ background: "var(--blue)" }}
-                    >
-                        {activeOrg.name[0]}
-                    </span>
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                        <span className="truncate font-medium leading-tight">{activeTeam.name}</span>
-                        <span className="text-[11px] truncate leading-tight mt-0.5" style={{ color: "var(--muted)" }}>{activeOrg.name}</span>
-                    </div>
-                    <ChevronDown size={14} style={{ color: "var(--muted)" }} className={cn("transition-transform", teamOpen && "rotate-180")} />
-                </button>
-
-                {teamOpen && (
-                    <div
-                        className="mt-1 rounded-lg overflow-hidden py-1 shadow-xl"
-                        style={{ background: "var(--surface)", border: "1px solid var(--border)", maxHeight: "calc(100vh - 200px)", overflowY: "auto" }}
-                    >
-                        {ORGANIZATIONS.map(org => (
-                            <div key={org.id} className="mb-2 last:mb-0">
-                                <div className="px-3 py-1.5 flex items-center gap-2">
-                                     <span
-                                        className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                                        style={{ background: "var(--blue)" }}
-                                    >
-                                        {org.name[0]}
-                                    </span>
-                                    <span className="text-[11px] font-semibold tracking-wider uppercase flex-1 truncate" style={{ color: "var(--muted)" }}>
-                                        {org.name}
-                                    </span>
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-sm font-medium uppercase tracking-wider" style={{ background: "var(--surface2)", color: "var(--muted-foreground)" }}>
-                                        {org.plan}
-                                    </span>
-                                </div>
-                                <div className="mt-0.5">
-                                    {org.teams.map(t => (
-                                        <button
-                                            key={t.id}
-                                            onClick={() => { setActiveOrg(org); setActiveTeam(t); setTeamOpen(false); }}
-                                            className="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm hover:bg-zinc-700 transition-colors pl-[38px]"
-                                        >
-                                            <span className="flex-1 text-left">
-                                                <div className="font-medium text-[13px]" style={{ color: activeTeam.id === t.id ? "white" : "var(--muted-foreground)" }}>
-                                                    {t.name}
-                                                </div>
-                                            </span>
-                                            {activeTeam.id === t.id && <Check size={14} style={{ color: "var(--green)" }} />}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                        <div className="mt-2 pt-2 px-2" style={{ borderTop: "1px solid var(--border)" }}>
-                            <Link 
-                                href="/dashboard/team/new"
-                                onClick={() => setTeamOpen(false)}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-md hover:bg-zinc-700 transition-colors"
-                                style={{ color: "var(--muted-foreground)" }}
-                            >
-                                <Plus size={14} /> Create Team
-                            </Link>
-                            <Link 
-                                href="/dashboard/org/new"
-                                onClick={() => setTeamOpen(false)}
-                                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-md hover:bg-zinc-700 transition-colors mb-1"
-                                style={{ color: "var(--muted-foreground)" }}
-                            >
-                                <Building2 size={14} /> Create Organization
-                            </Link>
-                        </div>
-                    </div>
+            {/* ── Switchers ── */}
+            <div className="px-2 pt-2 pb-2 relative" style={{ borderBottom: "1px solid var(--border)" }}>
+                <SectionLabel>Tenant</SectionLabel>
+                <SwitcherItem 
+                    name={activeTenant.name} 
+                    onClick={() => setActiveDropdown(activeDropdown === "tenant" ? null : "tenant")}
+                    isOpen={activeDropdown === "tenant"}
+                />
+                {activeDropdown === "tenant" && (
+                    <DropdownMenu 
+                        items={TENANTS} 
+                        onSelect={(t) => setActiveTenant(t)} 
+                        activeId={activeTenant.id} 
+                    />
                 )}
             </div>
 
-            {/* Main nav */}
-            <nav className="flex-1 px-3 py-3 overflow-y-auto">
-                <div className="mb-4">
-                    {NAV_MAIN.map(item => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={cn(
-                                "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium mb-0.5 transition-colors",
-                                isActive(item.href)
-                                    ? "text-white"
-                                    : "hover:bg-zinc-800"
-                            )}
-                            style={
-                                isActive(item.href)
-                                    ? { background: "rgba(230,57,70,0.15)", color: "var(--accent)" }
-                                    : { color: "var(--muted-foreground)" }
-                            }
-                        >
-                            <item.icon size={15} />
-                            {item.label}
-                        </Link>
-                    ))}
-                </div>
+            <div className="px-2 pt-1 pb-2 relative" style={{ borderBottom: "1px solid var(--border)" }}>
+                <SectionLabel>Group</SectionLabel>
+                <SwitcherItem 
+                    name={activeGroup.name} 
+                    onClick={() => setActiveDropdown(activeDropdown === "group" ? null : "group")}
+                    isOpen={activeDropdown === "group"}
+                />
+                {activeDropdown === "group" && (
+                    <DropdownMenu 
+                        items={activeTenant.groups} 
+                        onSelect={(g) => setActiveGroup(g)} 
+                        activeId={activeGroup.id} 
+                    />
+                )}
+            </div>
 
-                <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-widest px-2.5 mb-2" style={{ color: "var(--muted)" }}>
-                        Organization
-                    </p>
-                    {NAV_TEAM.map(item => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm mb-0.5 transition-colors hover:bg-zinc-800"
-                            style={{ color: "var(--muted-foreground)" }}
-                        >
-                            <item.icon size={15} />
-                            {item.label}
-                        </Link>
-                    ))}
-                </div>
+            <div className="px-2 pt-1 pb-2 relative" style={{ borderBottom: "1px solid var(--border)" }}>
+                <SectionLabel>Organization</SectionLabel>
+                <SwitcherItem 
+                    name={activeOrg?.name || "No Teams"} 
+                    onClick={() => setActiveDropdown(activeDropdown === "org" ? null : "org")}
+                    isOpen={activeDropdown === "org"}
+                />
+                {activeDropdown === "org" && activeGroup.teams.length > 0 && (
+                    <DropdownMenu 
+                        items={activeGroup.teams} 
+                        onSelect={(team) => setActiveOrg(team)} 
+                        activeId={activeOrg?.id} 
+                    />
+                )}
+            </div>
+
+            {/* ── Main navigation ── */}
+            <nav className="flex-1 px-2 py-2 overflow-y-auto">
+                {NAV_ITEMS.map(item => (
+                    <NavItem
+                        key={item.href}
+                        href={item.href}
+                        icon={item.icon}
+                        label={item.label}
+                        active={isActive(item.href)}
+                    />
+                ))}
             </nav>
 
-            {/* Bottom profile */}
-            <div className="px-3 py-3" style={{ borderTop: "1px solid var(--border)" }}>
+            {/* ── Bottom profile ── */}
+            <div className="px-2 py-2" style={{ borderTop: "1px solid var(--border)" }}>
                 {user ? (
-                    <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-zinc-800 transition-colors group">
-                        <Link href="/dashboard/profile" className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-zinc-800/60 transition-colors">
+                        <Link href="/dashboard/profile" className="flex items-center gap-2 flex-1 min-w-0">
                             {user.photoURL ? (
-                                <img src={user.photoURL} alt={user.displayName || "User"} className="w-6 h-6 rounded-full flex-shrink-0" />
+                                <img
+                                    src={user.photoURL}
+                                    alt={user.displayName || "User"}
+                                    className="w-5 h-5 rounded-full flex-shrink-0"
+                                />
                             ) : (
                                 <div
-                                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                                    className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
                                     style={{ background: "var(--surface2)" }}
                                 >
-                                    <User size={12} style={{ color: "var(--muted)" }} />
+                                    <User size={11} style={{ color: "var(--muted)" }} />
                                 </div>
                             )}
                             <div className="flex-1 min-w-0">
                                 <div className="text-xs font-medium truncate">{user.displayName || user.email}</div>
-                                <div className="text-[11px]" style={{ color: "var(--muted)" }}>Pro Plan</div>
+                                <div className="text-[10px]" style={{ color: "var(--muted)" }}>Org Admin</div>
                             </div>
                         </Link>
-                        <button 
+                        <button
                             onClick={() => logout()}
-                            className="p-1.5 rounded-md hover:bg-zinc-700 transition-colors"
+                            className="p-1 rounded hover:bg-zinc-700 transition-colors"
                             title="Log Out"
                         >
-                            <LogOut size={13} style={{ color: "var(--muted)" }} />
+                            <LogOut size={12} style={{ color: "var(--muted)" }} />
                         </button>
                     </div>
                 ) : (
                     <button
                         onClick={() => loginWithGoogle()}
-                        className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-colors hover:bg-zinc-800 text-[var(--accent)] font-semibold"
+                        className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors hover:bg-zinc-800/60 font-semibold"
+                        style={{ color: "var(--accent)" }}
                     >
-                        <LogIn size={15} />
+                        <LogIn size={14} />
                         <span className="text-sm">Sign In</span>
                     </button>
                 )}

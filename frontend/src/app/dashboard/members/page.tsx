@@ -65,6 +65,8 @@ const MOCK_MEMBERS = [
 
 const TABS = ["All Members", "Admins", "Pending Invites"];
 
+import TopBar from "@/components/dashboard/TopBar";
+
 export default function MembersPage() {
     const [activeTab, setActiveTab] = useState(TABS[0]);
     const [searchQuery, setSearchQuery] = useState("");
@@ -86,23 +88,26 @@ export default function MembersPage() {
     });
 
     return (
-        <div className="px-6 md:px-10 py-8 max-w-6xl">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <div>
+        <div className="flex flex-col h-full">
+            <TopBar 
+                action={
+                    <button
+                        onClick={() => setShowInviteModal(true)}
+                        className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all hover:opacity-90 text-white"
+                        style={{ background: "var(--accent)" }}
+                    >
+                        <UserPlus size={14} /> Invite Member
+                    </button>
+                }
+            />
+            <div className="px-6 md:px-10 py-8 max-w-6xl mx-auto w-full">
+                {/* Header */}
+                <div className="mb-8">
                     <h1 className="text-2xl font-extrabold tracking-tight mb-1">Organization Members</h1>
                     <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
                         Manage access and roles for {org.name}
                     </p>
                 </div>
-                <button
-                    onClick={() => setShowInviteModal(true)}
-                    className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 text-white"
-                    style={{ background: "var(--accent)" }}
-                >
-                    <UserPlus size={16} /> Invite Member
-                </button>
-            </div>
 
             {/* Filters & Search */}
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
@@ -377,6 +382,7 @@ export default function MembersPage() {
                 </div>
             )}
             
+        </div>
         </div>
     );
 }
