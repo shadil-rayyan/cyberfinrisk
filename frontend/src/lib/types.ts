@@ -67,6 +67,30 @@ export interface ScanResults {
     gemini_enabled: boolean;
 }
 
+export interface Project {
+    id: string;
+    repo_url: string;
+    branch: string;
+    org_id: string;
+    group_id: string;
+    created_by: string;
+    created_at: string;
+    last_scanned_at: string | null;
+    status: string;
+    vulnerability_count: number;
+    total_expected_loss: number;
+    total_fix_cost: number;
+    gemini_enabled: boolean;
+}
+
+export interface ProjectDetail extends Project {
+    company: Record<string, any>;
+    scan_results: VulnerabilityResult[];
+    attack_chains: AttackChain[];
+    executive_summary: string;
+    filtered_count: number;
+}
+
 export interface ScanFormData {
     repo_url: string;
     branch: string;

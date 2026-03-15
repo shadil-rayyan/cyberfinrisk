@@ -9,3 +9,10 @@ google-generativeai
 jinja2
 prometheus-fastapi-instrumentator
 aiosmtplib
+motor
+pymongo
+bcrypt
+python-multipart
+sqlalchemy
+psycopg2-binary
+firebase-admin

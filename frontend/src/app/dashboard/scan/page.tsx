@@ -8,6 +8,8 @@ import { api } from "@/lib/api";
 import { ScanResults, CompanyContext, VulnInput } from "@/lib/types";
 import { fmtMoney } from "@/lib/utils";
 import TopBar from "@/components/dashboard/TopBar";
+import { useAuth } from "@/context/AuthContext";
+import { useOrg } from "@/context/OrgContext";
 
 type ScanState = "idle" | "scanning" | "done" | "error";
 
@@ -36,6 +38,9 @@ export default function ScanPage() {
     const [results, setResults] = useState<ScanResults | null>(null);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+
+    const { user } = useAuth();
+    const { activeOrg, activeGroup } = useOrg();
 
     // Mock company context for ManualTab shared context note or simple defaults
     const getCompanyInternal = (): CompanyContext => {
@@ -68,12 +73,33 @@ export default function ScanPage() {
         branch: string;
         gemini_api_key: string | null;
     }) {
+        if (!user || !activeOrg) {
+            setError("Please log in and select an organization before scanning.");
+            return;
+        }
+
         setLoading(true);
         setState("scanning");
         setError("");
         try {
-            const data = await api.scanRepo(payload);
-            setResults(data);
+            const data = await api.createProject({
+                ...payload,
+                org_id: activeOrg.id,
+                group_id: activeGroup?.id || "",
+                created_by: user.uid
+            });
+
+            // Map ProjectDetail back to ScanResults for UI compatibility
+            setResults({
+                results: data.scan_results,
+                attack_chains: data.attack_chains,
+                executive_summary: data.executive_summary,
+                total_expected_loss: data.total_expected_loss,
+                total_fix_cost: data.total_fix_cost,
+                vulnerability_count: data.vulnerability_count,
+                filtered_count: data.filtered_count,
+                gemini_enabled: data.gemini_enabled,
+            });
             setState("done");
         } catch (err: any) {
             setError(err.message || "Failed to scan repository");

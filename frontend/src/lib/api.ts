@@ -1,4 +1,4 @@
-import { ScanResults, CompanyContext, VulnInput } from "./types";
+import { ScanResults, CompanyContext, VulnInput, Project, ProjectDetail } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -148,5 +148,44 @@ export const api = {
 
     async deleteNotification(id: string): Promise<void> {
         await fetchAPI(`/api/notifications/${id}`, { method: "DELETE" });
+    },
+
+    // ── Projects ──────────────────────────────────────────────────────────────
+
+    async createProject(payload: {
+        repo_url: string;
+        branch: string;
+        company: CompanyContext;
+        org_id: string;
+        group_id: string;
+        created_by: string;
+        gemini_api_key: string | null;
+    }): Promise<ProjectDetail> {
+        return fetchAPI("/api/projects", {
+            method: "POST",
+            body: JSON.stringify(payload),
+        });
+    },
+
+    async listProjects(org_id: string, group_id?: string, user_uuid?: string): Promise<Project[]> {
+        let endpoint = `/api/projects?org_id=${org_id}`;
+        if (group_id) endpoint += `&group_id=${group_id}`;
+        if (user_uuid) endpoint += `&user_uuid=${user_uuid}`;
+        return fetchAPI(endpoint);
+    },
+
+    async getProject(project_id: string): Promise<ProjectDetail> {
+        return fetchAPI(`/api/projects/${project_id}`);
+    },
+
+    async deleteProject(project_id: string): Promise<void> {
+        await fetchAPI(`/api/projects/${project_id}`, { method: "DELETE" });
+    },
+
+    async scanAllProjects(org_id: string, group_id?: string, user_uuid?: string): Promise<any> {
+        let endpoint = `/api/projects/scan-all?org_id=${org_id}`;
+        if (group_id) endpoint += `&group_id=${group_id}`;
+        if (user_uuid) endpoint += `&user_uuid=${user_uuid}`;
+        return fetchAPI(endpoint, { method: "POST" });
     },
 };

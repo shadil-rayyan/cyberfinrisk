@@ -1,4 +1,5 @@
 import json, os, shutil, uuid
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 load_dotenv()
 from typing import List, Optional
@@ -16,7 +17,7 @@ logger = setup_logging()
 
 from models.company import CompanyContext
 from models.risk_result import RiskResult, AttackChain
-from engine.scanner import clone_repo, run_semgrep, parse_semgrep_findings
+from engine.scanner import clone_repo, run_semgrep, parse_semgrep_findings, run_trivy, parse_trivy_findings
 from engine.classifier import classify_bug, get_fix_effort, load_taxonomy
 from engine.probability_model import load_probabilities, get_probability
 from engine.impact_model import compute_total_impact
@@ -33,6 +34,7 @@ from models.db import (
     Base, 
     pg_engine, 
     get_pg_db, 
+    get_mongo_db,
     connect_to_mongo, 
     close_mongo_connection,
     User,
@@ -51,6 +53,7 @@ from models.org_schemas import (
     MemberResponse,
     NotificationResponse
 )
+from models.project_schemas import ProjectCreate, ProjectSummary, ProjectDetail
 
 # Manage Startup and Shutdown events
 @asynccontextmanager
@@ -224,9 +227,19 @@ async def scan_repo(req: ScanRequest):
     repo_path = None
     try:
         repo_path = clone_repo(req.repo_url, req.branch)
-        raw       = run_semgrep(repo_path)
-        parsed    = parse_semgrep_findings(raw, req.company.deployment_exposure, repo_path)
-        results, chains, filtered = run_risk_engine(parsed, req.company, req.gemini_api_key)
+        
+        # Run Semgrep
+        semgrep_raw = run_semgrep(repo_path)
+        semgrep_parsed = parse_semgrep_findings(semgrep_raw, req.company.deployment_exposure, repo_path)
+        
+        # Run Trivy
+        trivy_raw = run_trivy(repo_path)
+        trivy_parsed = parse_trivy_findings(trivy_raw, req.company.deployment_exposure, repo_path)
+        
+        # Merge Findings
+        combined_parsed = semgrep_parsed + trivy_parsed
+        
+        results, chains, filtered = run_risk_engine(combined_parsed, req.company, req.gemini_api_key)
         os.makedirs("data", exist_ok=True)
         with open("data/risk_results.json", "w") as f:
             json.dump({"results": [r.dict() for r in results],
@@ -647,3 +660,290 @@ async def delete_notification(id: str, db: Session = Depends(get_pg_db)):
         raise HTTPException(status_code=404, detail="Notification not found")
     db.delete(notif)
     db.commit()
+
+
+# ==========================================
+# Project Endpoints (MongoDB)
+# ==========================================
+
+def _check_org_membership(user_uuid: str, org_id: str, db: Session):
+    """Verify user is a member of the org. Raises 403 if not."""
+    member = db.query(OrganizationMember).filter(
+        OrganizationMember.org_id == org_id,
+        OrganizationMember.user_uuid == user_uuid
+    ).first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Not a member of this organization")
+
+
+@app.post("/api/projects", response_model=ProjectDetail)
+async def create_project(req: ProjectCreate, db: Session = Depends(get_pg_db)):
+    """Run a scan and save the project + results to MongoDB."""
+    # 1. Verify org membership
+    _check_org_membership(req.created_by, req.org_id, db)
+
+    mongo = get_mongo_db()
+    if mongo is None:
+        raise HTTPException(status_code=500, detail="MongoDB not connected")
+
+    # 2. Run the scan
+    repo_path = None
+    repo_path = None
+    try:
+        repo_path = clone_repo(req.repo_url, req.branch)
+        
+        # Run Semgrep
+        semgrep_raw = run_semgrep(repo_path)
+        semgrep_parsed = parse_semgrep_findings(semgrep_raw, req.company.deployment_exposure, repo_path)
+        
+        # Run Trivy
+        trivy_raw = run_trivy(repo_path)
+        trivy_parsed = parse_trivy_findings(trivy_raw, req.company.deployment_exposure, repo_path)
+        
+        # Merge Findings
+        combined_parsed = semgrep_parsed + trivy_parsed
+        
+        results, chains, filtered = run_risk_engine(combined_parsed, req.company, req.gemini_api_key)
+        summary = generate_executive_summary(results, req.company, chains)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
+    finally:
+        if repo_path and os.path.exists(repo_path):
+            shutil.rmtree(repo_path)
+
+    # 3. Build the document
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "repo_url": req.repo_url,
+        "branch": req.branch,
+        "company": req.company.dict(),
+        "org_id": req.org_id,
+        "group_id": req.group_id,
+        "created_by": req.created_by,
+        "created_at": now,
+        "last_scanned_at": now,
+        "status": "completed",
+        "scan_results": [r.dict() for r in results],
+        "attack_chains": [c.dict() for c in chains],
+        "executive_summary": summary,
+        "total_expected_loss": sum(r.expected_loss for r in results),
+        "total_fix_cost": sum(r.fix_cost_usd for r in results),
+        "vulnerability_count": len(results),
+        "filtered_count": filtered,
+        "gemini_enabled": bool(req.gemini_api_key),
+    }
+
+    # 4. Insert into MongoDB
+    result = await mongo["projects"].insert_one(doc)
+    doc["id"] = str(result.inserted_id)
+
+    return ProjectDetail(
+        id=doc["id"],
+        repo_url=doc["repo_url"],
+        branch=doc["branch"],
+        org_id=doc["org_id"],
+        group_id=doc["group_id"],
+        created_by=doc["created_by"],
+        created_at=doc["created_at"],
+        last_scanned_at=doc["last_scanned_at"],
+        status=doc["status"],
+        vulnerability_count=doc["vulnerability_count"],
+        total_expected_loss=doc["total_expected_loss"],
+        total_fix_cost=doc["total_fix_cost"],
+        gemini_enabled=doc["gemini_enabled"],
+        company=doc["company"],
+        scan_results=doc["scan_results"],
+        attack_chains=doc["attack_chains"],
+        executive_summary=doc["executive_summary"],
+        filtered_count=doc["filtered_count"],
+    )
+
+
+@app.get("/api/projects", response_model=List[ProjectSummary])
+async def list_projects(
+    org_id: str,
+    group_id: Optional[str] = None,
+    user_uuid: Optional[str] = None,
+    db: Session = Depends(get_pg_db)
+):
+    """List projects for an org, optionally filtered by group."""
+    if user_uuid:
+        _check_org_membership(user_uuid, org_id, db)
+
+    mongo = get_mongo_db()
+    if mongo is None:
+        raise HTTPException(status_code=500, detail="MongoDB not connected")
+
+    query = {"org_id": org_id}
+    if group_id:
+        query["group_id"] = group_id
+
+    cursor = mongo["projects"].find(
+        query,
+        {  # Projection: exclude heavy fields for list view
+            "scan_results": 0,
+            "attack_chains": 0,
+            "company": 0,
+            "executive_summary": 0,
+        }
+    ).sort("last_scanned_at", -1)
+
+    projects = []
+    async for doc in cursor:
+        projects.append(ProjectSummary(
+            id=str(doc["_id"]),
+            repo_url=doc["repo_url"],
+            branch=doc["branch"],
+            org_id=doc["org_id"],
+            group_id=doc["group_id"],
+            created_by=doc.get("created_by", ""),
+            created_at=doc.get("created_at", ""),
+            last_scanned_at=doc.get("last_scanned_at"),
+            status=doc.get("status", "completed"),
+            vulnerability_count=doc.get("vulnerability_count", 0),
+            total_expected_loss=doc.get("total_expected_loss", 0),
+            total_fix_cost=doc.get("total_fix_cost", 0),
+            gemini_enabled=doc.get("gemini_enabled", False),
+        ))
+    return projects
+
+
+@app.get("/api/projects/{project_id}", response_model=ProjectDetail)
+async def get_project(project_id: str):
+    """Get a single project with full scan results."""
+    from bson import ObjectId
+    mongo = get_mongo_db()
+    if mongo is None:
+        raise HTTPException(status_code=500, detail="MongoDB not connected")
+
+    try:
+        doc = await mongo["projects"].find_one({"_id": ObjectId(project_id)})
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid project ID")
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    return ProjectDetail(
+        id=str(doc["_id"]),
+        repo_url=doc["repo_url"],
+        branch=doc["branch"],
+        org_id=doc["org_id"],
+        group_id=doc["group_id"],
+        created_by=doc.get("created_by", ""),
+        created_at=doc.get("created_at", ""),
+        last_scanned_at=doc.get("last_scanned_at"),
+        status=doc.get("status", "completed"),
+        vulnerability_count=doc.get("vulnerability_count", 0),
+        total_expected_loss=doc.get("total_expected_loss", 0),
+        total_fix_cost=doc.get("total_fix_cost", 0),
+        gemini_enabled=doc.get("gemini_enabled", False),
+        company=doc.get("company", {}),
+        scan_results=doc.get("scan_results", []),
+        attack_chains=doc.get("attack_chains", []),
+        executive_summary=doc.get("executive_summary", ""),
+        filtered_count=doc.get("filtered_count", 0),
+    )
+
+
+@app.delete("/api/projects/{project_id}", status_code=204)
+async def delete_project(project_id: str):
+    """Delete a project from MongoDB."""
+    from bson import ObjectId
+    mongo = get_mongo_db()
+    if mongo is None:
+        raise HTTPException(status_code=500, detail="MongoDB not connected")
+
+    try:
+        result = await mongo["projects"].delete_one({"_id": ObjectId(project_id)})
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid project ID")
+
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+
+@app.post("/api/projects/scan-all")
+async def scan_all_projects(
+    org_id: str,
+    group_id: Optional[str] = None,
+    user_uuid: Optional[str] = None,
+    db: Session = Depends(get_pg_db)
+):
+    """Re-scan all projects for a given org/group."""
+    if user_uuid:
+        _check_org_membership(user_uuid, org_id, db)
+
+    mongo = get_mongo_db()
+    if mongo is None:
+        raise HTTPException(status_code=500, detail="MongoDB not connected")
+
+    query = {"org_id": org_id}
+    if group_id:
+        query["group_id"] = group_id
+
+    cursor = mongo["projects"].find(query)
+    results_summary = []
+    errors = []
+
+    async for doc in cursor:
+        project_id = str(doc["_id"])
+        repo_path = None
+        try:
+            company = CompanyContext(**doc["company"])
+            gemini_key = None  # Don't use stored key for security
+            repo_path = clone_repo(doc["repo_url"], doc["branch"])
+            
+            # Run Semgrep
+            semgrep_raw = run_semgrep(repo_path)
+            semgrep_parsed = parse_semgrep_findings(semgrep_raw, company.deployment_exposure, repo_path)
+            
+            # Run Trivy
+            trivy_raw = run_trivy(repo_path)
+            trivy_parsed = parse_trivy_findings(trivy_raw, company.deployment_exposure, repo_path)
+            
+            # Merge Findings
+            combined_parsed = semgrep_parsed + trivy_parsed
+            
+            scan_results, chains, filtered = run_risk_engine(combined_parsed, company, gemini_key)
+            summary = generate_executive_summary(scan_results, company, chains)
+
+            now = datetime.now(timezone.utc).isoformat()
+            from bson import ObjectId
+            await mongo["projects"].update_one(
+                {"_id": ObjectId(project_id)},
+                {"$set": {
+                    "scan_results": [r.dict() for r in scan_results],
+                    "attack_chains": [c.dict() for c in chains],
+                    "executive_summary": summary,
+                    "total_expected_loss": sum(r.expected_loss for r in scan_results),
+                    "total_fix_cost": sum(r.fix_cost_usd for r in scan_results),
+                    "vulnerability_count": len(scan_results),
+                    "filtered_count": filtered,
+                    "gemini_enabled": False,
+                    "last_scanned_at": now,
+                    "status": "completed",
+                }}
+            )
+            results_summary.append({"project_id": project_id, "status": "completed", "vulnerabilities": len(scan_results)})
+        except Exception as e:
+            errors.append({"project_id": project_id, "error": str(e)})
+            # Mark as failed in DB
+            try:
+                from bson import ObjectId
+                await mongo["projects"].update_one(
+                    {"_id": ObjectId(project_id)},
+                    {"$set": {"status": "failed", "last_scanned_at": datetime.now(timezone.utc).isoformat()}}
+                )
+            except Exception:
+                pass
+        finally:
+            if repo_path and os.path.exists(repo_path):
+                shutil.rmtree(repo_path)
+
+    return {
+        "scanned": len(results_summary),
+        "failed": len(errors),
+        "results": results_summary,
+        "errors": errors,
+    }

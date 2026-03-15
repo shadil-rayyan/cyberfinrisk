@@ -91,3 +91,73 @@ def parse_semgrep_findings(findings: List[Dict], exposure: str, repo_path: str =
         parsed.append(v)
 
     return parsed
+
+
+def run_trivy(repo_path: str) -> Dict:
+    """Run Trivy on a local directory and return JSON results."""
+    trivy_bin = os.path.join(os.path.dirname(__file__), "trivy")
+    # Fallback to system path if local doesn't exist
+    if not os.path.exists(trivy_bin):
+        trivy_bin = "trivy"
+
+    try:
+        result = subprocess.run(
+            [trivy_bin, "fs", "--format", "json", "--quiet", "--no-progress", repo_path],
+            capture_output=True, text=True, timeout=300
+        )
+        if result.returncode != 0 and not result.stdout:
+            return {}
+        return json.loads(result.stdout)
+    except Exception as e:
+        print(f"Trivy scan failed: {e}")
+        return {}
+
+
+def parse_trivy_findings(trivy_data: Dict, exposure: str, repo_path: str = "") -> List[Dict]:
+    """Parse Trivy (SCA & Misconfig) into unified vulnerability format."""
+    parsed = []
+    results = trivy_data.get("Results", [])
+    if not results:
+        return []
+
+    count = 0
+    for res in results:
+        target = res.get("Target", "unknown")
+        
+        # 1. Handle Vulnerabilities (SCA)
+        for v in res.get("Vulnerabilities", []):
+            count += 1
+            parsed.append({
+                "id": f"TRV_V_{count:03d}",
+                "raw_rule_id": v.get("VulnerabilityID", "unknown"),
+                "file": target,
+                "line": 1,  # SCA usually doesn't have a line, default 1
+                "message": f"Dependency '{v.get('PkgName')}' ({v.get('InstalledVersion')}) has vulnerability: {v.get('Title', v.get('Description', ''))[:150]}",
+                "severity": v.get("Severity", "MEDIUM").lower(),
+                "exposure": exposure.upper(),
+                "code_context": f"Package: {v.get('PkgName')}\nInstalled: {v.get('InstalledVersion')}\nFixed in: {v.get('FixedVersion', 'N/A')}\nPrimary URL: {v.get('PrimaryURL', 'N/A')}"
+            })
+
+        # 2. Handle Misconfigurations (IaC)
+        for m in res.get("Misconfigurations", []):
+            count += 1
+            line = m.get("CauseMetadata", {}).get("StartLine", 1)
+            
+            code_ctx = ""
+            if repo_path:
+                full_path = os.path.join(repo_path, target)
+                code_ctx = read_code_context(full_path, line)
+
+            parsed.append({
+                "id": f"TRV_M_{count:03d}",
+                "raw_rule_id": m.get("ID", "unknown"),
+                "file": target,
+                "line": line,
+                "message": m.get("Message", ""),
+                "severity": m.get("Severity", "MEDIUM").lower(),
+                "exposure": exposure.upper(),
+                "code_context": code_ctx
+            })
+
+    return parsed
+

@@ -24,6 +24,15 @@ RULE_MAPPING = {
 
 def classify_bug(raw_rule_id: str, message: str) -> str:
     combined = (raw_rule_id + " " + message).lower()
+    
+    # Priority classification for Trivy
+    if any(p in raw_rule_id.upper() for p in ["CVE-", "GHSA-"]):
+        return "VULNERABLE_DEPENDENCY"
+    if "AVD-" in raw_rule_id.upper() or "misconfiguration" in combined:
+        return "MISCONFIGURATION"
+    if "dependency" in combined and "vulnerability" in combined:
+        return "VULNERABLE_DEPENDENCY"
+
     for keyword, bug_type in RULE_MAPPING.items():
         if keyword in combined:
             return bug_type
