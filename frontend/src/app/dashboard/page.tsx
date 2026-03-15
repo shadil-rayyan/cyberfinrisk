@@ -61,11 +61,13 @@ function ChartTooltip({ active, payload, label }: {
 }
 
 import TopBar from "@/components/dashboard/TopBar";
+import { useOrg } from "@/context/OrgContext";
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
     const m = DASHBOARD_METRICS;
+    const { activeOrg } = useOrg();
 
     return (
         <div className="flex flex-col h-full">
@@ -84,7 +86,7 @@ export default function DashboardPage() {
                 <div className="mb-8">
                     <h1 className="text-2xl font-extrabold tracking-tight mb-1">Dashboard</h1>
                     <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-                        Security risk overview for Acme Corp
+                        Security risk overview for {activeOrg?.name ?? "your organization"}
                     </p>
                 </div>
 

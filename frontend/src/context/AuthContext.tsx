@@ -50,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const loginWithGoogle = async () => {
         try {
+            googleProvider.setCustomParameters({ prompt: 'select_account' });
             return await signInWithPopup(auth, googleProvider);
         } catch (error) {
             console.error("Login failed", error);

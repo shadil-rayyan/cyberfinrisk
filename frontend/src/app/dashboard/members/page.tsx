@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
     UserPlus, 
     MoreHorizontal, 
@@ -9,83 +9,85 @@ import {
     Search,
     X,
     Send,
-    Check
+    Loader2
 } from "lucide-react";
-import { ORGANIZATIONS } from "@/lib/mock-data";
-
-// ── Mock Data for Members ───────────────────────────────────────────────────
-
-const MOCK_MEMBERS = [
-    {
-        id: "usr_1",
-        name: "Alice Administrator",
-        email: "alice@acme.com",
-        role: "Owner",
-        status: "Active",
-        teams: ["Frontend Team", "Backend Team", "DevOps"],
-        lastActive: "2 mins ago"
-    },
-    {
-        id: "usr_2",
-        name: "Bob Builder",
-        email: "bob@acme.com",
-        role: "Admin",
-        status: "Active",
-        teams: ["Frontend Team", "Backend Team"],
-        lastActive: "1 hour ago"
-    },
-    {
-        id: "usr_3",
-        name: "Charlie Charlie",
-        email: "charlie@acme.com",
-        role: "Developer",
-        status: "Active",
-        teams: ["Backend Team"],
-        lastActive: "Yesterday"
-    },
-    {
-        id: "usr_4",
-        name: "Diana Developer",
-        email: "diana@acme.com",
-        role: "Developer",
-        status: "Active",
-        teams: ["Frontend Team"],
-        lastActive: "3 days ago"
-    },
-    {
-        id: "usr_5",
-        name: "Eve External",
-        email: "eve@external.com",
-        role: "Viewer",
-        status: "Invited",
-        teams: ["Frontend Team"],
-        lastActive: "Never"
-    }
-];
+import { useOrg } from "@/context/OrgContext";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
+import TopBar from "@/components/dashboard/TopBar";
 
 const TABS = ["All Members", "Admins", "Pending Invites"];
 
-import TopBar from "@/components/dashboard/TopBar";
-
 export default function MembersPage() {
+    const { activeOrg } = useOrg();
+    const { user } = useAuth();
+    const [members, setMembers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState(TABS[0]);
     const [searchQuery, setSearchQuery] = useState("");
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [inviteRole, setInviteRole] = useState("Developer");
     const [inviteEmail, setInviteEmail] = useState("");
-    const [inviteTeams, setInviteTeams] = useState<string[]>([]);
-    
-    // In a real app, this would be the actual org from context/state
-    const org = ORGANIZATIONS[1]!;
+    const [inviting, setInviting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const filteredMembers = MOCK_MEMBERS.filter(m => {
-        const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                              m.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const fetchMembers = async () => {
+        if (!activeOrg) return;
+        setLoading(true);
+        try {
+            const data = await api.listMembers(activeOrg.id);
+            setMembers(data);
+        } catch (err: any) {
+            console.error("Failed to fetch members:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchMembers();
+    }, [activeOrg?.id]);
+
+    const handleInvite = async () => {
+        if (!inviteEmail || !activeOrg || !user?.uid) return;
+        setInviting(true);
+        setError(null);
+        try {
+            await api.inviteMember(activeOrg.id, {
+                invited_email: inviteEmail,
+                role: inviteRole,
+                inviter_uuid: user.uid,
+            });
+            setShowInviteModal(false);
+            setInviteEmail("");
+            // In a real app we might want to show pending invites in the list
+            // For now let's just refresh or show success
+        } catch (err: any) {
+            setError(err.message || "Failed to send invite.");
+        } finally {
+            setInviting(false);
+        }
+    };
+
+    const filteredMembers = members.filter(m => {
+        const name = m.full_name || "Unknown User";
+        const email = m.email || "";
+        const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                              email.toLowerCase().includes(searchQuery.toLowerCase());
         
         if (activeTab === "Admins") return matchesSearch && (m.role === "Owner" || m.role === "Admin");
-        if (activeTab === "Pending Invites") return matchesSearch && m.status === "Invited";
+        // Pending invites logic would need a separate API or filtered list
+        if (activeTab === "Pending Invites") return false; 
         return matchesSearch;
     });
+
+    if (!activeOrg) {
+        return (
+            <div className="flex flex-col h-full items-center justify-center text-zinc-500 text-sm">
+                No organization selected.
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col h-full">
@@ -105,7 +107,7 @@ export default function MembersPage() {
                 <div className="mb-8">
                     <h1 className="text-2xl font-extrabold tracking-tight mb-1">Organization Members</h1>
                     <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-                        Manage access and roles for {org.name}
+                        Manage access and roles for {activeOrg.name}
                     </p>
                 </div>
 
@@ -151,13 +153,20 @@ export default function MembersPage() {
                             <tr style={{ borderBottom: "1px solid var(--border)", background: "rgba(0,0,0,0.2)" }}>
                                 <th className="px-5 py-3 font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Member</th>
                                 <th className="px-5 py-3 font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Role</th>
-                                <th className="px-5 py-3 font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Teams</th>
                                 <th className="px-5 py-3 font-semibold text-xs uppercase tracking-wider" style={{ color: "var(--muted-foreground)" }}>Status</th>
                                 <th className="px-5 py-3 font-semibold text-xs uppercase tracking-wider text-right" style={{ color: "var(--muted-foreground)" }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredMembers.length > 0 ? (
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={4} className="px-5 py-12 text-center text-sm" style={{ color: "var(--muted-foreground)" }}>
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Loader2 size={16} className="animate-spin" /> Loading members...
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : filteredMembers.length > 0 ? (
                                 filteredMembers.map((member, i) => (
                                     <tr 
                                         key={member.id} 
@@ -167,13 +176,13 @@ export default function MembersPage() {
                                         <td className="px-5 py-4">
                                             <div className="flex items-center gap-3">
                                                 <div 
-                                                    className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0"
+                                                    className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 uppercase"
                                                     style={{ background: "var(--surface2)", color: "var(--muted-foreground)" }}
                                                 >
-                                                    {member.name.split(' ').map(n => n[0]).join('')}
+                                                    {(member.full_name || "U")[0]}
                                                 </div>
                                                 <div>
-                                                    <div className="font-medium">{member.name}</div>
+                                                    <div className="font-medium">{member.full_name || "Unknown User"}</div>
                                                     <div className="text-xs flex items-center gap-1 mt-0.5" style={{ color: "var(--muted)" }}>
                                                         <Mail size={10} /> {member.email}
                                                     </div>
@@ -191,35 +200,14 @@ export default function MembersPage() {
                                             </div>
                                         </td>
                                         <td className="px-5 py-4">
-                                            <div className="flex flex-wrap gap-1.5 max-w-[200px]">
-                                                {member.teams.slice(0, 2).map(t => (
-                                                    <span 
-                                                        key={t}
-                                                        className="text-[10px] px-2 py-0.5 rounded-full border"
-                                                        style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--muted-foreground)" }}
-                                                    >
-                                                        {t}
-                                                    </span>
-                                                ))}
-                                                {member.teams.length > 2 && (
-                                                    <span 
-                                                        className="text-[10px] px-2 py-0.5 rounded-full border"
-                                                        style={{ borderColor: "var(--border)", background: "var(--surface)", color: "var(--muted-foreground)" }}
-                                                    >
-                                                        +{member.teams.length - 2}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-5 py-4">
                                             <span 
                                                 className="text-[11px] font-semibold px-2 py-1 rounded-md"
                                                 style={{ 
-                                                    background: member.status === "Active" ? "rgba(34,197,94,0.1)" : "rgba(249,115,22,0.1)", 
-                                                    color: member.status === "Active" ? "var(--green)" : "var(--orange)",
+                                                    background: "rgba(34,197,94,0.1)", 
+                                                    color: "var(--green)",
                                                 }}
                                             >
-                                                {member.status}
+                                                Active
                                             </span>
                                         </td>
                                         <td className="px-5 py-4 text-right">
@@ -234,7 +222,7 @@ export default function MembersPage() {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={5} className="px-5 py-12 text-center text-sm" style={{ color: "var(--muted-foreground)" }}>
+                                    <td colSpan={4} className="px-5 py-12 text-center text-sm" style={{ color: "var(--muted-foreground)" }}>
                                         No members found matching your search criteria.
                                     </td>
                                 </tr>
@@ -243,6 +231,7 @@ export default function MembersPage() {
                     </table>
                 </div>
             </div>
+
             {/* Invite Modal Overlay */}
             {showInviteModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -260,7 +249,7 @@ export default function MembersPage() {
                         <div className="flex items-center justify-between p-5" style={{ borderBottom: "1px solid var(--border)" }}>
                             <h2 className="text-lg font-bold flex items-center gap-2">
                                 <UserPlus size={18} style={{ color: "var(--accent)" }} /> 
-                                Invite to {org.name}
+                                Invite to {activeOrg.name}
                             </h2>
                             <button 
                                 onClick={() => setShowInviteModal(false)}
@@ -272,6 +261,12 @@ export default function MembersPage() {
                         </div>
                         
                         <div className="p-6">
+                            {error && (
+                                <div className="mb-4 px-3 py-2 rounded-lg text-xs text-red-400 bg-red-500/10 border border-red-500/20">
+                                    {error}
+                                </div>
+                            )}
+
                             <div className="mb-5">
                                 <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
                                     Email Address
@@ -286,6 +281,7 @@ export default function MembersPage() {
                                     onFocus={e => e.target.style.borderColor = "var(--accent)"}
                                     onBlur={e => e.target.style.borderColor = "var(--border)"}
                                     autoFocus
+                                    disabled={inviting}
                                 />
                             </div>
 
@@ -301,11 +297,12 @@ export default function MembersPage() {
                                     ].map(role => (
                                         <div 
                                             key={role.id}
-                                            onClick={() => setInviteRole(role.id)}
+                                            onClick={() => !inviting && setInviteRole(role.id)}
                                             className="flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors border"
                                             style={{ 
                                                 background: inviteRole === role.id ? "rgba(230,57,70,0.05)" : "var(--surface)",
-                                                borderColor: inviteRole === role.id ? "var(--accent)" : "var(--border)"
+                                                borderColor: inviteRole === role.id ? "var(--accent)" : "var(--border)",
+                                                opacity: inviting ? 0.7 : 1
                                             }}
                                         >
                                             <div className="mt-0.5">
@@ -326,36 +323,6 @@ export default function MembersPage() {
                                     ))}
                                 </div>
                             </div>
-
-                            <div className="mb-2">
-                                <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                                    Teams (Optional)
-                                </label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto pr-1">
-                                    {org.teams.map(team => (
-                                        <div 
-                                            key={team.id}
-                                            onClick={() => setInviteTeams(prev => prev.includes(team.id) ? prev.filter(t => t !== team.id) : [...prev, team.id])}
-                                            className="flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer transition-colors border"
-                                            style={{ 
-                                                background: inviteTeams.includes(team.id) ? "var(--surface2)" : "var(--surface)",
-                                                borderColor: inviteTeams.includes(team.id) ? "var(--accent)" : "var(--border)"
-                                            }}
-                                        >
-                                            <div 
-                                                className="w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0"
-                                                style={{ 
-                                                    borderColor: inviteTeams.includes(team.id) ? "var(--accent)" : "var(--muted)",
-                                                    background: inviteTeams.includes(team.id) ? "var(--accent)" : "transparent"
-                                                }}
-                                            >
-                                                {inviteTeams.includes(team.id) && <Check size={10} className="text-white" />}
-                                            </div>
-                                            <div className="text-xs font-semibold truncate">{team.name}</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
                         </div>
 
                         <div className="p-5 flex justify-end gap-3" style={{ borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
@@ -363,26 +330,28 @@ export default function MembersPage() {
                                 onClick={() => setShowInviteModal(false)}
                                 className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-zinc-800"
                                 style={{ border: "1px solid var(--border)", color: "var(--foreground)" }}
+                                disabled={inviting}
                             >
                                 Cancel
                             </button>
                             <button 
-                                onClick={() => setShowInviteModal(false)}
+                                onClick={handleInvite}
                                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 text-white"
                                 style={{ 
                                     background: inviteEmail ? "var(--accent)" : "var(--muted)",
-                                    cursor: inviteEmail ? "pointer" : "not-allowed"
+                                    cursor: (inviteEmail && !inviting) ? "pointer" : "not-allowed"
                                 }}
-                                disabled={!inviteEmail}
+                                disabled={!inviteEmail || inviting}
                             >
-                                <Send size={14} /> Send Invite
+                                {inviting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                                {inviting ? "Sending..." : "Send Invite"}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
             
-        </div>
+            </div>
         </div>
     );
 }

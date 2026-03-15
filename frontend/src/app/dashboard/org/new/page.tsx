@@ -76,10 +76,10 @@ export default function CreateOrganizationPage() {
                 </div>
             )}
 
-            <div className="rounded-xl overflow-hidden mb-8 p-6 sm:p-8" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
-                <div className="space-y-6">
+            <div className="rounded-xl mb-10 p-8 sm:p-10" style={{ background: "var(--card)", border: "1px solid var(--border)", boxShadow: "0 4px 30px rgba(0,0,0,0.3)" }}>
+                <div className="space-y-8">
                     <div>
-                        <label className="block text-sm font-bold mb-2">
+                        <label className="block text-xs font-black mb-3 uppercase tracking-widest text-zinc-500">
                             Organization Name
                         </label>
                         <input 
@@ -90,29 +90,43 @@ export default function CreateOrganizationPage() {
                                 const val = e.target.value;
                                 setForm({ name: val, slug: val.toLowerCase().replace(/[^a-z0-9]+/g, '-') });
                             }}
-                            className="w-full rounded-lg px-4 py-3 text-sm outline-none transition-colors"
-                            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--foreground)" }}
-                            onFocus={e => e.target.style.borderColor = "var(--accent)"}
-                            onBlur={e => e.target.style.borderColor = "var(--border)"}
+                            className="w-full rounded-lg px-5 h-14 text-base outline-none transition-all"
+                            style={{ 
+                                background: "var(--surface2)", 
+                                border: "1px solid var(--border)", 
+                                color: "var(--foreground)"
+                            }}
+                            onFocus={e => {
+                                e.target.style.borderColor = "var(--accent)";
+                                e.target.style.background = "var(--surface)";
+                                e.target.style.boxShadow = "0 0 0 2px rgba(230,57,70,0.2)";
+                            }}
+                            onBlur={e => {
+                                e.target.style.borderColor = "var(--border)";
+                                e.target.style.background = "var(--surface2)";
+                                e.target.style.boxShadow = "none";
+                            }}
                             disabled={loading}
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-bold mb-2">
+                        <label className="block text-xs font-black mb-3 uppercase tracking-widest text-zinc-500">
                             Organization URL Slug
                         </label>
-                        <div className="flex pr-2 rounded-lg items-center transition-colors" style={{ background: "var(--surface)", border: "1px solid var(--border)" }} >
-                            <span className="px-4 text-sm font-medium" style={{ color: "var(--muted-foreground)", borderRight: "1px solid var(--border)" }}>
+                        <div className="flex rounded-lg items-stretch overflow-hidden h-14 transition-all" style={{ background: "var(--surface2)", border: "1px solid var(--border)" }} >
+                            <div className="px-5 text-sm font-bold flex items-center whitespace-nowrap" style={{ background: "var(--surface)", color: "var(--muted-foreground)", borderRight: "1px solid var(--border)" }}>
                                 finrisk.app/
-                            </span>
+                            </div>
                             <input 
                                 type="text" 
                                 placeholder="acme-corp"
                                 value={form.slug}
                                 onChange={e => setForm(f => ({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '') }))}
-                                className="w-full bg-transparent px-4 py-3 text-sm outline-none"
+                                className="w-full bg-transparent px-5 text-base outline-none h-full"
                                 style={{ color: "var(--foreground)" }}
+                                onFocus={e => e.target.parentElement!.style.borderColor = "var(--accent)"}
+                                onBlur={e => e.target.parentElement!.style.borderColor = "var(--border)"}
                                 disabled={loading}
                             />
                         </div>

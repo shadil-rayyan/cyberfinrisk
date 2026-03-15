@@ -1,8 +1,8 @@
-import json, os, shutil
+import json, os, shutil, uuid
 from dotenv import load_dotenv
 load_dotenv()
 from typing import List, Optional
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -27,6 +27,7 @@ from engine.gemini_analyzer import init_gemini, analyze_vulnerability
 from engine.attack_chain import find_attack_chains
 from engine.business_brief import generate_business_brief, generate_executive_summary
 from prometheus_fastapi_instrumentator import Instrumentator
+from utils.email_utils import send_invite_email
 
 from models.db import (
     Base, 
@@ -37,9 +38,19 @@ from models.db import (
     User,
     PersonalAccessToken,
     Organization,
-    OrganizationMember
+    OrganizationMember,
+    Group,
+    GroupMember,
+    OrgInvite,
+    Notification
 )
-from models.org_schemas import OrganizationCreate, OrganizationResponse
+from models.org_schemas import (
+    OrganizationCreate, OrganizationUpdate, OrganizationResponse,
+    GroupCreate, GroupUpdate, GroupResponse,
+    OrgInviteCreate, OrgInviteResponse,
+    MemberResponse,
+    NotificationResponse
+)
 
 # Manage Startup and Shutdown events
 @asynccontextmanager
@@ -378,9 +389,261 @@ async def create_organization(req: OrganizationCreate, db: Session = Depends(get
     
     return new_org
 
-@app.get("/api/orgs/{slug}", response_model=OrganizationResponse)
-async def get_organization(slug: str, db: Session = Depends(get_pg_db)):
-    org = db.query(Organization).filter(Organization.slug == slug).first()
+@app.patch("/api/orgs/{org_id}", response_model=OrganizationResponse)
+async def update_organization(org_id: str, req: OrganizationUpdate, db: Session = Depends(get_pg_db)):
+    org = db.query(Organization).filter(Organization.id == org_id).first()
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
+    if req.name is not None:
+        org.name = req.name
+    if req.plan is not None:
+        org.plan = req.plan
+    db.commit()
+    db.refresh(org)
     return org
+
+@app.delete("/api/orgs/{org_id}", status_code=204)
+async def delete_organization(org_id: str, db: Session = Depends(get_pg_db)):
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    db.delete(org)
+    db.commit()
+
+# ==========================================
+# Group Endpoints
+# ==========================================
+
+@app.get("/api/orgs/{org_id}/groups", response_model=List[GroupResponse])
+async def list_groups(org_id: str, db: Session = Depends(get_pg_db)):
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return org.groups
+
+@app.post("/api/orgs/{org_id}/groups", response_model=GroupResponse)
+async def create_group(org_id: str, req: GroupCreate, db: Session = Depends(get_pg_db)):
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    new_group = Group(
+        name=req.name,
+        description=req.description,
+        org_id=org_id,
+        creator_uuid=req.creator_uuid,
+    )
+    db.add(new_group)
+    db.flush()
+
+    # Add creator as admin of the group
+    membership = GroupMember(
+        group_id=new_group.id,
+        user_uuid=req.creator_uuid,
+        role="admin"
+    )
+    db.add(membership)
+    db.commit()
+    db.refresh(new_group)
+    return new_group
+
+@app.get("/api/groups/{group_id}", response_model=GroupResponse)
+async def get_group(group_id: str, db: Session = Depends(get_pg_db)):
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    return group
+
+@app.patch("/api/groups/{group_id}", response_model=GroupResponse)
+async def update_group(group_id: str, req: GroupUpdate, db: Session = Depends(get_pg_db)):
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    if req.name is not None:
+        group.name = req.name
+    if req.description is not None:
+        group.description = req.description
+    if req.auto_scan is not None:
+        group.auto_scan = req.auto_scan
+    if req.enforce_policies is not None:
+        group.enforce_policies = req.enforce_policies
+    db.commit()
+    db.refresh(group)
+    return group
+
+@app.delete("/api/groups/{group_id}", status_code=204)
+async def delete_group(group_id: str, db: Session = Depends(get_pg_db)):
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    db.delete(group)
+    db.commit()
+
+
+# ── Members API ────────────────────────────────────────────────────────────
+
+@app.get("/api/orgs/{org_id}/members", response_model=List[MemberResponse])
+async def list_org_members(org_id: str, db: Session = Depends(get_pg_db)):
+    members = db.query(
+        OrganizationMember.id,
+        OrganizationMember.org_id,
+        OrganizationMember.user_uuid,
+        OrganizationMember.role,
+        OrganizationMember.joined_at,
+        User.email,
+        User.full_name
+    ).join(User, OrganizationMember.user_uuid == User.uuid).filter(OrganizationMember.org_id == org_id).all()
+    
+    return [
+        MemberResponse(
+            id=m.id,
+            org_id=m.org_id,
+            user_uuid=m.user_uuid,
+            role=m.role,
+            joined_at=m.joined_at,
+            email=m.email,
+            full_name=m.full_name
+        ) for m in members
+    ]
+
+
+# ── Invites API ────────────────────────────────────────────────────────────
+
+@app.post("/api/orgs/{org_id}/invite", response_model=OrgInviteResponse)
+async def invite_member(
+    org_id: str, 
+    req: OrgInviteCreate, 
+    background_tasks: BackgroundTasks, 
+    db: Session = Depends(get_pg_db)
+):
+    # 1. Create the invite with explicit token
+    invite_token = str(uuid.uuid4())
+    invite = OrgInvite(
+        org_id=org_id,
+        invited_email=req.invited_email,
+        inviter_uuid=req.inviter_uuid,
+        role=req.role,
+        token=invite_token
+    )
+    db.add(invite)
+    
+    # 2. Fetch context for notification/email
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    inviter = db.query(User).filter(User.uuid == req.inviter_uuid).first()
+    inviter_name = inviter.full_name if inviter else "A teammate"
+    org_name = org.name if org else "an organization"
+
+    # 3. Check if user exists to send in-app notification
+    user = db.query(User).filter(User.email == req.invited_email).first()
+    if user:
+        notif = Notification(
+            user_uuid=user.uuid,
+            type="invite",
+            title="Team Invitation",
+            body=f"You have been invited to join {org_name}.",
+            link=f"/dashboard/invites/{invite_token}"
+        )
+        db.add(notif)
+    
+    # 4. Dispatch Email in background
+    background_tasks.add_task(
+        send_invite_email,
+        to_email=req.invited_email,
+        org_name=org_name,
+        invite_token=invite_token,
+        inviter_name=inviter_name
+    )
+    
+    db.commit()
+    db.refresh(invite)
+    return invite
+
+@app.get("/api/invites/{token}")
+async def get_invite_details(token: str, db: Session = Depends(get_pg_db)):
+    invite = db.query(OrgInvite).filter(OrgInvite.token == token).first()
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    
+    org = db.query(Organization).filter(Organization.id == invite.org_id).first()
+    return {
+        "org_name": org.name if org else "an organization",
+        "invited_email": invite.invited_email,
+        "status": invite.status,
+        "role": invite.role
+    }
+
+@app.post("/api/invites/{token}/accept")
+async def accept_invite(
+    token: str, 
+    user_uuid: str, 
+    db: Session = Depends(get_pg_db)
+):
+    # 1. Verify invite
+    invite = db.query(OrgInvite).filter(OrgInvite.token == token).first()
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invalid invitation token")
+    
+    if invite.status == "accepted":
+        # Check if this specific user is the one who accepted or is already a member
+        org = db.query(Organization).filter(Organization.id == invite.org_id).first()
+        return {"message": "You are already a member", "org_name": org.name if org else "the organization"}
+
+    # 2. Add member
+    # Check if already a member first (idempotency)
+    existing = db.query(OrganizationMember).filter(
+        OrganizationMember.org_id == invite.org_id, 
+        OrganizationMember.user_uuid == user_uuid
+    ).first()
+    
+    if not existing:
+        member = OrganizationMember(
+            org_id=invite.org_id,
+            user_uuid=user_uuid,
+            role=invite.role
+        )
+        db.add(member)
+    
+    # 3. Update invite status
+    invite.status = "accepted"
+    
+    # 4. Notify new member
+    org = db.query(Organization).filter(Organization.id == invite.org_id).first()
+    notif = Notification(
+        user_uuid=user_uuid,
+        type="info",
+        title="Welcome!",
+        body=f"You are now a member of {org.name if org else 'the organization'}.",
+        link="/dashboard"
+    )
+    db.add(notif)
+    
+    db.commit()
+    return {"message": "Successfully joined organization", "org_name": org.name if org else "the organization"}
+
+
+# ── Notifications API ───────────────────────────────────────────────────────
+
+
+# ── Notifications API ───────────────────────────────────────────────────────
+
+@app.get("/api/notifications/{user_uuid}", response_model=List[NotificationResponse])
+async def list_notifications(user_uuid: str, db: Session = Depends(get_pg_db)):
+    return db.query(Notification).filter(Notification.user_uuid == user_uuid).order_by(Notification.created_at.desc()).all()
+
+@app.patch("/api/notifications/{id}/read", response_model=NotificationResponse)
+async def mark_notification_read(id: str, db: Session = Depends(get_pg_db)):
+    notif = db.query(Notification).filter(Notification.id == id).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    notif.is_read = True
+    db.commit()
+    db.refresh(notif)
+    return notif
+
+@app.delete("/api/notifications/{id}", status_code=204)
+async def delete_notification(id: str, db: Session = Depends(get_pg_db)):
+    notif = db.query(Notification).filter(Notification.id == id).first()
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    db.delete(notif)
+    db.commit()

@@ -8,3 +8,4 @@ python-dotenv
 google-generativeai
 jinja2
 prometheus-fastapi-instrumentator
+aiosmtplib

@@ -2,8 +2,11 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Bell } from "lucide-react";
 import { useOrg } from "@/context/OrgContext";
+import { useAuth } from "@/context/AuthContext";
+import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
 
 // Maps path segments to human-readable labels
 const SEGMENT_LABELS: Record<string, string> = {
@@ -13,6 +16,7 @@ const SEGMENT_LABELS: Record<string, string> = {
     reports: "Reports",
     settings: "Settings",
     members: "Members",
+    notifications: "Notifications",
     billing: "Billing",
     profile: "Profile",
     org: "Organization",
@@ -27,6 +31,8 @@ interface TopBarProps {
 export default function TopBar({ action }: TopBarProps) {
     const pathname = usePathname();
     const { activeOrg } = useOrg();
+    const { user } = useAuth();
+    const [unreadCount, setUnreadCount] = useState(0);
 
     // Build breadcrumb segments from the URL path
     const segments = pathname
@@ -36,6 +42,24 @@ export default function TopBar({ action }: TopBarProps) {
             label: SEGMENT_LABELS[seg] ?? seg.replace(/-/g, " "),
             href: "/" + arr.slice(0, idx + 1).join("/"),
         }));
+
+    useEffect(() => {
+        if (!user?.uid) return;
+        
+        const fetchUnreadCount = async () => {
+            try {
+                const notifs = await api.getNotifications(user.uid);
+                setUnreadCount(notifs.filter(n => !n.is_read).length);
+            } catch (err) {
+                console.error("Failed to fetch notification count", err);
+            }
+        };
+
+        fetchUnreadCount();
+        // Set up an interval to refresh occasionally
+        const interval = setInterval(fetchUnreadCount, 60000); // every minute
+        return () => clearInterval(interval);
+    }, [user?.uid, pathname]);
 
     return (
         <div
@@ -53,7 +77,7 @@ export default function TopBar({ action }: TopBarProps) {
                     className="font-medium transition-colors hover:text-white"
                     style={{ color: "var(--muted-foreground)" }}
                 >
-                    {activeOrg.name}
+                    {activeOrg?.name ?? "FinRisk"}
                 </Link>
 
                 {segments.slice(1).map((seg, i, arr) => (
@@ -74,8 +98,25 @@ export default function TopBar({ action }: TopBarProps) {
                 ))}
             </nav>
 
-            {/* Right-side action */}
-            {action && <div className="flex items-center gap-2">{action}</div>}
+            {/* Right-side elements */}
+            <div className="flex items-center gap-4">
+                <Link 
+                    href="/dashboard/notifications" 
+                    className="relative p-2 rounded-md transition-colors hover:bg-zinc-800"
+                    style={{ color: "var(--muted-foreground)" }}
+                >
+                    <Bell size={18} />
+                    {unreadCount > 0 && (
+                        <span 
+                            className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white border-2 border-[var(--card)]"
+                            style={{ background: "var(--accent)" }}
+                        >
+                            {unreadCount > 9 ? "9+" : unreadCount}
+                        </span>
+                    )}
+                </Link>
+                {action && <div className="flex items-center gap-2">{action}</div>}
+            </div>
         </div>
     );
 }

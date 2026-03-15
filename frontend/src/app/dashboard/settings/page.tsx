@@ -1,32 +1,75 @@
 "use client";
 
 import { useState } from "react";
-import { ORGANIZATIONS } from "@/lib/mock-data";
+import { useRouter } from "next/navigation";
 import { Upload, Save, ShieldCheck, Mail, Globe, AlertTriangle } from "lucide-react";
 import TopBar from "@/components/dashboard/TopBar";
+import { useOrg } from "@/context/OrgContext";
+import { api } from "@/lib/api";
 
 export default function SettingsPage() {
-    // In a real app, this would be the actual org from context/state
-    const org = ORGANIZATIONS[1]!;
+    const router = useRouter();
+    const { activeOrg, refetchOrgs } = useOrg();
+    const org = activeOrg;
     
     const [form, setForm] = useState({
-        name: org.name,
-        slug: "acme-corp",
-        supportEmail: "security@acme.com",
-        domain: "acme.com",
-        ssoEnforced: true,
+        name: org?.name ?? "",
+        slug: org?.slug ?? "",
+        supportEmail: "",
+        domain: "",
+        ssoEnforced: false,
         mfaEnforced: false,
     });
+
+    const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    if (!org) {
+        return (
+            <div className="flex flex-col h-full items-center justify-center text-zinc-500 text-sm">
+                No organization selected.
+            </div>
+        );
+    }
+
+    const handleSave = async () => {
+        setSaving(true);
+        setError(null);
+        try {
+            await api.updateOrganization(org.id, { name: form.name, plan: org.plan });
+            await refetchOrgs();
+        } catch (err: any) {
+            setError(err.message || "Failed to save changes.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!confirm(`Delete "${org.name}"? This is permanent and removes all groups and projects.`)) return;
+        setDeleting(true);
+        try {
+            await api.deleteOrganization(org.id);
+            await refetchOrgs();
+            router.push("/dashboard");
+        } catch (err: any) {
+            setError(err.message || "Failed to delete organization.");
+            setDeleting(false);
+        }
+    };
 
     return (
         <div className="flex flex-col h-full">
             <TopBar 
                 action={
                     <button 
-                        className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all hover:opacity-90 text-white"
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-all hover:opacity-90 text-white disabled:opacity-50"
                         style={{ background: "var(--accent)" }}
                     >
-                        <Save size={14} /> Save Changes
+                        {saving ? "Saving..." : <><Save size={14} /> Save Changes</>}
                     </button>
                 }
             />
@@ -40,6 +83,12 @@ export default function SettingsPage() {
                         </p>
                     </div>
                 </div>
+
+                {error && (
+                    <div className="mb-6 px-4 py-3 rounded-lg text-sm text-red-400 bg-red-500/10 border border-red-500/20">
+                        {error}
+                    </div>
+                )}
 
                 {/* Profile Section */}
                 <div className="rounded-xl overflow-hidden mb-8" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
@@ -214,8 +263,13 @@ export default function SettingsPage() {
                                     Permanently delete the {org.name} organization, all teams, projects, and scan history. This action cannot be undone.
                                 </p>
                             </div>
-                            <button className="px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap text-red-500 transition-colors hover:bg-red-500/10" style={{ border: "1px solid rgba(239,68,68,0.3)" }}>
-                                Delete Organization
+                            <button 
+                                onClick={handleDelete}
+                                disabled={deleting}
+                                className="px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap text-red-500 transition-colors hover:bg-red-500/10 disabled:opacity-50" 
+                                style={{ border: "1px solid rgba(239,68,68,0.3)" }}
+                            >
+                                {deleting ? "Deleting..." : "Delete Organization"}
                             </button>
                         </div>
                     </div>

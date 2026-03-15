@@ -295,64 +295,38 @@ export const COMPLIANCE_FINES = [
     { regulation: "CCPA", fine: 75_000 },
 ];
 
-// ── Organizations & Teams ─────────────────────────────────────────────────────
+// ── Organizations & Groups ────────────────────────────────────────────────────
 
-export interface OrgTeam {
+export interface Group {
     id: string;
     name: string;
 }
 
-export interface OrgGroup {
-    id: string;
-    name: string;
-    teams: OrgTeam[];
-}
-
-export interface Tenant {
+export interface Organization {
     id: string;
     name: string;
     plan: string;
-    groups: OrgGroup[];
+    groups: Group[];
 }
 
-export const TENANTS: Tenant[] = [
+export const ORGANIZATIONS: Organization[] = [
     {
-        id: "tenant-personal",
-        name: "Personal",
+        id: "org-personal",
+        name: "Personal Projects",
         plan: "Free",
         groups: [
-            {
-                id: "group-personal-default",
-                name: "Personal Projects",
-                teams: [
-                    { id: "team-personal-1", name: "Hobby projects" },
-                    { id: "team-personal-2", name: "Open Source" }
-                ]
-            }
+            { id: "group-personal-1", name: "Hobby projects" },
+            { id: "group-personal-2", name: "Open Source" }
         ]
     },
     {
-        id: "tenant-acme",
+        id: "org-acme",
         name: "Acme Corporation",
         plan: "Enterprise",
         groups: [
-            {
-                id: "group-engineering",
-                name: "Engineering Division",
-                teams: [
-                    { id: "team-frontend", name: "Frontend Platform" },
-                    { id: "team-backend", name: "Backend Services" },
-                    { id: "team-mobile", name: "Mobile App" }
-                ]
-            },
-            {
-                id: "group-security",
-                name: "Security Labs",
-                teams: [
-                    { id: "team-red", name: "Red Team Ops" },
-                    { id: "team-blue", name: "Blue Team Analytics" }
-                ]
-            }
+            { id: "group-engineering", name: "Engineering Division" },
+            { id: "group-security", name: "Security Labs" },
+            { id: "group-product", name: "Product Design" }
         ]
     }
 ];

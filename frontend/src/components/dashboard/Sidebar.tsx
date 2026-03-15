@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
     LayoutDashboard,
     FolderOpen,
@@ -13,18 +13,24 @@ import {
     User,
     LogIn,
     ArrowRightLeft,
+    Plus,
+    Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TENANTS } from "@/lib/mock-data";
 import { useAuth } from "@/context/AuthContext";
 import { useOrg } from "@/context/OrgContext";
 
-const NAV_ITEMS = [
+const ORG_NAV_ITEMS = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/dashboard/projects", icon: FolderOpen, label: "Projects" },
-    { href: "/dashboard/scan", icon: Scan, label: "Integrations" },
     { href: "/dashboard/members", icon: Users, label: "Members" },
+    { href: "/dashboard/notifications", icon: Bell, label: "Notifications" },
     { href: "/dashboard/settings", icon: Settings, label: "Settings" },
+];
+
+const GROUP_NAV_ITEMS = [
+    { href: "/dashboard/scan", icon: Scan, label: "Integrations" },
+    { href: "/dashboard/settings/group", icon: Settings, label: "Group Settings" },
 ];
 
 /** Small uppercase section label — identical to Snyk's TENANT/GROUP/ORGANIZATION labels */
@@ -42,7 +48,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 /** Clean switcher button for Tenant/Group/Org matching Snyk */
 function SwitcherItem({ name, onClick, isOpen }: { name: string; onClick?: () => void; isOpen?: boolean }) {
     return (
-        <button 
+        <button
             onClick={onClick}
             className={cn(
                 "w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-left transition-colors",
@@ -96,11 +102,12 @@ function NavItem({
 
 export default function Sidebar() {
     const pathname = usePathname();
+    const router = useRouter();
     const { user, loginWithGoogle, logout } = useAuth();
-    const { activeTenant, setActiveTenant, activeGroup, setActiveGroup, activeOrg, setActiveOrg } = useOrg();
-    
+    const { activeOrg, setActiveOrg, activeGroup, setActiveGroup, organizations, loading } = useOrg();
+
     // State for interactive dropdowns
-    const [activeDropdown, setActiveDropdown] = useState<"tenant" | "group" | "org" | null>(null);
+    const [activeDropdown, setActiveDropdown] = useState<"org" | "group" | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -119,17 +126,21 @@ export default function Sidebar() {
     }
 
     // Helper for rendering the floating dropdown menu
-    function DropdownMenu({ 
-        items, 
-        onSelect, 
-        activeId 
-    }: { 
-        items: { id: string; name: string }[]; 
+    function DropdownMenu({
+        items,
+        onSelect,
+        activeId,
+        onCreate,
+        createLabel
+    }: {
+        items: { id: string; name: string }[];
         onSelect: (item: any) => void;
         activeId: string;
+        onCreate?: () => void;
+        createLabel?: string;
     }) {
         return (
-            <div 
+            <div
                 ref={dropdownRef}
                 className="absolute left-2 right-2 mt-1 z-50 rounded-md border shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
                 style={{ background: "var(--surface)", borderColor: "var(--border)" }}
@@ -151,6 +162,16 @@ export default function Sidebar() {
                         </button>
                     ))}
                 </div>
+                {onCreate && (
+                    <button
+                        onClick={onCreate}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-semibold transition-colors hover:bg-white/5"
+                        style={{ borderTop: "1px solid var(--border)", color: "var(--accent)" }}
+                    >
+                        <Plus size={14} />
+                        <span>{createLabel || "Create New"}</span>
+                    </button>
+                )}
             </div>
         );
     }
@@ -178,67 +199,89 @@ export default function Sidebar() {
                 <span className="font-bold text-sm tracking-tight text-white">snyk</span>
             </div>
 
-            {/* ── Switchers ── */}
-            <div className="px-2 pt-2 pb-2 relative" style={{ borderBottom: "1px solid var(--border)" }}>
-                <SectionLabel>Tenant</SectionLabel>
-                <SwitcherItem 
-                    name={activeTenant.name} 
-                    onClick={() => setActiveDropdown(activeDropdown === "tenant" ? null : "tenant")}
-                    isOpen={activeDropdown === "tenant"}
-                />
-                {activeDropdown === "tenant" && (
-                    <DropdownMenu 
-                        items={TENANTS} 
-                        onSelect={(t) => setActiveTenant(t)} 
-                        activeId={activeTenant.id} 
-                    />
+            {/* ── Switcher & Nav Hierarchy ── */}
+            <div className="flex-1 overflow-y-auto px-2 py-2 flex flex-col gap-6">
+                
+                {loading && (
+                    <div className="px-3 py-4 text-xs text-zinc-500 animate-pulse">Loading...</div>
                 )}
-            </div>
 
-            <div className="px-2 pt-1 pb-2 relative" style={{ borderBottom: "1px solid var(--border)" }}>
-                <SectionLabel>Group</SectionLabel>
-                <SwitcherItem 
-                    name={activeGroup.name} 
-                    onClick={() => setActiveDropdown(activeDropdown === "group" ? null : "group")}
-                    isOpen={activeDropdown === "group"}
-                />
-                {activeDropdown === "group" && (
-                    <DropdownMenu 
-                        items={activeTenant.groups} 
-                        onSelect={(g) => setActiveGroup(g)} 
-                        activeId={activeGroup.id} 
-                    />
+                {!loading && !activeOrg && (
+                    <div className="px-3 py-4 text-xs text-zinc-500">
+                        No organizations yet.
+                        <button onClick={() => router.push("/dashboard/org/new")} className="block mt-1 text-accent underline">Create one →</button>
+                    </div>
                 )}
-            </div>
 
-            <div className="px-2 pt-1 pb-2 relative" style={{ borderBottom: "1px solid var(--border)" }}>
-                <SectionLabel>Organization</SectionLabel>
-                <SwitcherItem 
-                    name={activeOrg?.name || "No Teams"} 
-                    onClick={() => setActiveDropdown(activeDropdown === "org" ? null : "org")}
-                    isOpen={activeDropdown === "org"}
-                />
-                {activeDropdown === "org" && activeGroup.teams.length > 0 && (
-                    <DropdownMenu 
-                        items={activeGroup.teams} 
-                        onSelect={(team) => setActiveOrg(team)} 
-                        activeId={activeOrg?.id} 
-                    />
+                {/* ── Organization Level ── */}
+                {activeOrg && (
+                <div className="flex flex-col gap-1">
+                    <SectionLabel>Organization</SectionLabel>
+                    <div className="relative">
+                        <SwitcherItem
+                            name={activeOrg.name}
+                            onClick={() => setActiveDropdown(activeDropdown === "org" ? null : "org")}
+                            isOpen={activeDropdown === "org"}
+                        />
+                        {activeDropdown === "org" && (
+                            <DropdownMenu
+                                items={organizations}
+                                onSelect={(o) => setActiveOrg(o)}
+                                activeId={activeOrg.id}
+                                onCreate={() => router.push("/dashboard/org/new")}
+                                createLabel="New Organization"
+                            />
+                        )}
+                    </div>
+                    <div className="mt-2 space-y-0.5 ml-1 pl-1 border-l border-zinc-800/50">
+                        {ORG_NAV_ITEMS.map(item => (
+                            <NavItem
+                                key={item.href}
+                                href={item.href}
+                                icon={item.icon}
+                                label={item.label}
+                                active={isActive(item.href)}
+                            />
+                        ))}
+                    </div>
+                </div>
                 )}
-            </div>
 
-            {/* ── Main navigation ── */}
-            <nav className="flex-1 px-2 py-2 overflow-y-auto">
-                {NAV_ITEMS.map(item => (
-                    <NavItem
-                        key={item.href}
-                        href={item.href}
-                        icon={item.icon}
-                        label={item.label}
-                        active={isActive(item.href)}
-                    />
-                ))}
-            </nav>
+                {/* ── Group Level ── */}
+                {activeOrg && (
+                <div className="flex flex-col gap-1">
+                    <SectionLabel>Group</SectionLabel>
+                    <div className="relative">
+                        <SwitcherItem
+                            name={activeGroup?.name ?? "No Groups"}
+                            onClick={() => setActiveDropdown(activeDropdown === "group" ? null : "group")}
+                            isOpen={activeDropdown === "group"}
+                        />
+                        {activeDropdown === "group" && (
+                            <DropdownMenu
+                                items={activeOrg.groups}
+                                onSelect={(g) => setActiveGroup(g)}
+                                activeId={activeGroup?.id ?? ""}
+                                onCreate={() => router.push("/dashboard/group/new")}
+                                createLabel="New Group"
+                            />
+                        )}
+                    </div>
+                    <div className="mt-2 space-y-0.5 ml-1 pl-1 border-l border-zinc-800/50">
+                        {GROUP_NAV_ITEMS.map(item => (
+                            <NavItem
+                                key={item.href}
+                                href={item.href}
+                                icon={item.icon}
+                                label={item.label}
+                                active={isActive(item.href)}
+                            />
+                        ))}
+                    </div>
+                </div>
+                )}
+
+            </div>
 
             {/* ── Bottom profile ── */}
             <div className="px-2 py-2" style={{ borderTop: "1px solid var(--border)" }}>

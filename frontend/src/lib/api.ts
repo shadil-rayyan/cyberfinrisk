@@ -3,7 +3,9 @@ import { ScanResults, CompanyContext, VulnInput } from "./types";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const url = `${API_URL}${endpoint}`;
+    console.log(`[API] Fetching: ${url}`);
+    const response = await fetch(url, {
         ...options,
         headers: {
             "Content-Type": "application/json",
@@ -67,5 +69,84 @@ export const api = {
     async listOrganizations(user_uuid?: string): Promise<any[]> {
         const endpoint = user_uuid ? `/api/orgs?user_uuid=${user_uuid}` : "/api/orgs";
         return fetchAPI(endpoint);
+    },
+
+    async updateOrganization(org_id: string, payload: { name?: string; plan?: string }): Promise<any> {
+        return fetchAPI(`/api/orgs/${org_id}`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+        });
+    },
+
+    async deleteOrganization(org_id: string): Promise<void> {
+        await fetchAPI(`/api/orgs/${org_id}`, { method: "DELETE" });
+    },
+
+    async listGroups(org_id: string): Promise<any[]> {
+        return fetchAPI(`/api/orgs/${org_id}/groups`);
+    },
+
+    async createGroup(org_id: string, payload: {
+        name: string;
+        description?: string;
+        creator_uuid: string;
+    }): Promise<any> {
+        return fetchAPI(`/api/orgs/${org_id}/groups`, {
+            method: "POST",
+            body: JSON.stringify({ ...payload, org_id }),
+        });
+    },
+
+    async updateGroup(group_id: string, payload: {
+        name?: string;
+        description?: string;
+        auto_scan?: boolean;
+        enforce_policies?: boolean;
+    }): Promise<any> {
+        return fetchAPI(`/api/groups/${group_id}`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+        });
+    },
+
+    async deleteGroup(group_id: string): Promise<void> {
+        await fetchAPI(`/api/groups/${group_id}`, { method: "DELETE" });
+    },
+
+    // ── Members & Invites ────────────────────────────────────────────────────
+
+    async listMembers(org_id: string): Promise<any[]> {
+        return fetchAPI(`/api/orgs/${org_id}/members`);
+    },
+
+    async inviteMember(org_id: string, payload: { invited_email: string; role: string; inviter_uuid: string }): Promise<any> {
+        return fetchAPI(`/api/orgs/${org_id}/invite`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+        });
+    },
+
+    async getInvite(token: string): Promise<any> {
+        return fetchAPI(`/api/invites/${token}`);
+    },
+
+    async acceptInvite(token: string, user_uuid: string): Promise<any> {
+        return fetchAPI(`/api/invites/${token}/accept?user_uuid=${user_uuid}`, {
+            method: "POST",
+        });
+    },
+
+    // ── Notifications ────────────────────────────────────────────────────────
+
+    async getNotifications(user_uuid: string): Promise<any[]> {
+        return fetchAPI(`/api/notifications/${user_uuid}`);
+    },
+
+    async markNotificationRead(id: string): Promise<any> {
+        return fetchAPI(`/api/notifications/${id}/read`, { method: "PATCH" });
+    },
+
+    async deleteNotification(id: string): Promise<void> {
+        await fetchAPI(`/api/notifications/${id}`, { method: "DELETE" });
     },
 };
