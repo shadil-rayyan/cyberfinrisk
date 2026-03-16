@@ -40,7 +40,7 @@ export default function ScanPage() {
     const [loading, setLoading] = useState(false);
 
     const { user } = useAuth();
-    const { activeOrg, activeGroup } = useOrg();
+    const { activeOrg } = useOrg();
 
     // Mock company context for ManualTab shared context note or simple defaults
     const getCompanyInternal = (): CompanyContext => {
@@ -82,16 +82,10 @@ export default function ScanPage() {
         setState("scanning");
         setError("");
         try {
-            const data = await api.createProject({
-                ...payload,
-                org_id: activeOrg.id,
-                group_id: activeGroup?.id || "",
-                created_by: user.uid
-            });
+            const data = await api.scanRepo(payload);
 
-            // Map ProjectDetail back to ScanResults for UI compatibility
             setResults({
-                results: data.scan_results,
+                results: data.results,
                 attack_chains: data.attack_chains,
                 executive_summary: data.executive_summary,
                 total_expected_loss: data.total_expected_loss,

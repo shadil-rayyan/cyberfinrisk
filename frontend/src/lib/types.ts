@@ -20,6 +20,14 @@ export interface CompanyContext {
     product_description: string | null;
 }
 
+export interface PresetContext {
+    id: string;
+    label: string;
+    repo_url: string;
+    branch: string;
+    company: CompanyContext;
+}
+
 export interface GeminiAnalysis {
     business_context: string;
     is_exploitable: boolean;

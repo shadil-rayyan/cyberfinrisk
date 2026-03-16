@@ -1,6 +1,7 @@
 import subprocess, json, tempfile, shutil, os, stat
 from typing import List, Dict
 import git
+import re
 
 def _rmtree_windows_safe(path: str) -> None:
     """
@@ -20,20 +21,95 @@ def _rmtree_windows_safe(path: str) -> None:
     except Exception as e:
         print(f"[scanner] Warning: could not fully clean up temp dir {path}: {e}")
 
+
+def sanitize_repo_url(url: str) -> str:
+    """
+    Clean up common URL corruption before passing to git clone.
+    Handles:
+    - Markdown link artifacts: https://github.com/foo](https://github.com/foo)
+    - Surrounding brackets/parens: [https://github.com/foo]
+    - Surrounding quotes
+    - Trailing slashes and whitespace
+    """
+    url = url.strip()
+    # Strip markdown link suffix: url](url) → just the first url
+    url = re.split(r'\]\(https?://', url)[0]
+    # Strip leading [ ( or "
+    url = re.sub(r'^[\[\("\']+', '', url)
+    # Strip trailing ] ) or "
+    url = re.sub(r'[\]\)"\']+$', '', url)
+    url = url.strip().rstrip('/')
+    return url
+
+
 def clone_repo(repo_url: str, branch: str = "main") -> str:
+    repo_url = sanitize_repo_url(repo_url)
     tmp = tempfile.mkdtemp()
-    git.Repo.clone_from(repo_url, tmp, branch=branch, depth=1)
-    return tmp
+
+    def _try_clone(b=None):
+        """Clone with optional branch. b=None uses the repo's default branch."""
+        kwargs = {"depth": 1}
+        if b:
+            kwargs["branch"] = b
+        git.Repo.clone_from(repo_url, tmp, **kwargs)
+
+    branches_to_try = [branch]
+    # Add the opposite of what the user specified as a second try
+    if branch == "main":
+        branches_to_try.append("master")
+    elif branch == "master":
+        branches_to_try.append("main")
+    # Final fallback: let git use the repo's own default branch
+    branches_to_try.append(None)
+
+    last_error = None
+    for b in branches_to_try:
+        try:
+            _try_clone(b)
+            return tmp  # success
+        except git.exc.GitCommandError as e:
+            last_error = e
+            # Only retry on branch-not-found errors; hard-fail on bad URL etc.
+            err_str = str(e).lower()
+            if "not found" not in err_str and "exit code(128)" not in err_str:
+                break
+
+    _rmtree_windows_safe(tmp)
+    tried = [b or "(default)" for b in branches_to_try]
+    raise ValueError(
+        f"Could not clone '{repo_url}'. "
+        f"Tried branches: {', '.join(repr(b) for b in tried)}. "
+        f"Check that the URL is correct and the repo is public. "
+        f"Details: {last_error}"
+    )
+
+
+
 
 def run_semgrep(repo_path: str) -> List[Dict]:
+    import time
+    t0 = time.time()
     result = subprocess.run(
-        ["semgrep", "--config", "p/security-audit",
-         "--config", "p/owasp-top-ten", "--json", "--quiet", repo_path],
+        [
+            "semgrep",
+            "--config", "p/owasp-top-ten",  # Focused: 1 ruleset instead of 2 = 2x faster
+            "--json",
+            "--quiet",
+            "--jobs", "4",                  # Parallel workers
+            "--max-target-bytes", "500000", # Skip files > 500KB (vendor, minified)
+            "--timeout", "10",              # 10s cap per file
+            "--timeout-threshold", "3",     # Skip rule after 3 timeouts
+            repo_path
+        ],
         capture_output=True, text=True, timeout=300
     )
+    elapsed = time.time() - t0
     try:
-        return json.loads(result.stdout).get("results", [])
+        findings = json.loads(result.stdout).get("results", [])
+        print(f"[perf] Semgrep: {len(findings)} findings in {elapsed:.1f}s")
+        return findings
     except:
+        print(f"[perf] Semgrep: parse failed after {elapsed:.1f}s — stdout: {result.stdout[:200]}")
         return []
 
 def read_code_context(file_path: str, line: int, context_lines: int = 40) -> str:

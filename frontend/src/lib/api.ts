@@ -1,4 +1,4 @@
-import { ScanResults, CompanyContext, VulnInput, Project, ProjectDetail } from "./types";
+import { ScanResults, CompanyContext, VulnInput, Project, ProjectDetail, PresetContext } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -29,6 +29,10 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
 export const api = {
     async health(): Promise<{ status: string; version: string }> {
         return fetchAPI("/health");
+    },
+
+    async demoPresets(): Promise<PresetContext[]> {
+        return fetchAPI("/demo-presets");
     },
 
     async analyzeManual(payload: {
