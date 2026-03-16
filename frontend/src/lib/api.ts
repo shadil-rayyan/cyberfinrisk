@@ -203,4 +203,11 @@ export const api = {
         if (params.length) endpoint += `?${params.join("&")}`;
         return fetchAPI(endpoint);
     },
+
+    async sendReport(payload: any): Promise<any> {
+        return fetchAPI("/api/send-report", {
+            method: "POST",
+            body: JSON.stringify(payload)
+        });
+    },
 };

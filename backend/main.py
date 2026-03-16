@@ -110,6 +110,16 @@ class ScanRequest(BaseModel):
     company: CompanyContext
     gemini_api_key: Optional[str] = None
 
+class ReportPayload(BaseModel):
+    to_email: str
+    company_name: str
+    executive_summary: str
+    total_expected_loss: float
+    total_fix_cost: float
+    vulnerability_count: int
+    top_risks: List[dict]
+    attack_chains: List[dict]
+
 class AnalysisResponse(BaseModel):
     results: List[RiskResult]
     attack_chains: List[AttackChain]
@@ -1261,3 +1271,21 @@ async def scan_all_projects(
         "results": results_summary,
         "errors": errors,
     }
+
+@app.post("/api/send-report")
+async def send_report_endpoint(payload: ReportPayload):
+    try:
+        from utils.email_utils import send_report_email
+        await send_report_email(
+            payload.to_email,
+            payload.company_name,
+            payload.executive_summary,
+            payload.total_expected_loss,
+            payload.total_fix_cost,
+            payload.vulnerability_count,
+            payload.top_risks,
+            payload.attack_chains
+        )
+        return {"status": "sent", "to": payload.to_email}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

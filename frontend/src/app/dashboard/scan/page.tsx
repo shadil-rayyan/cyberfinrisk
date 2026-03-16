@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, CheckCircle, AlertTriangle, ArrowLeft } from "lucide-react";
+import { Loader2, CheckCircle, AlertTriangle, ArrowLeft, Download, Mail } from "lucide-react";
 import ScanTab from "@/components/ScanTab";
 import ManualTab from "@/components/ManualTab";
 import { api } from "@/lib/api";
@@ -10,6 +10,7 @@ import { fmtMoney } from "@/lib/utils";
 import TopBar from "@/components/dashboard/TopBar";
 import { useAuth } from "@/context/AuthContext";
 import { useOrg } from "@/context/OrgContext";
+import { ExecReport } from "@/components/report/ExecReport";
 
 type ScanState = "idle" | "scanning" | "done" | "error";
 
@@ -277,14 +278,62 @@ export default function ScanPage() {
                         </div>
                     </div>
 
-                    {results.executive_summary && (
-                        <div className="rounded-xl p-6 mb-8" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
-                            <h3 className="font-bold text-sm mb-4">Executive Summary</h3>
-                            <div className="text-sm leading-relaxed whitespace-pre-wrap text-[var(--muted-foreground)]">
-                                {results.executive_summary}
-                            </div>
+                    {/* ── Executive Report ── */}
+                    <div className="mb-8">
+                        {/* action buttons */}
+                        <div className="flex items-center gap-3 mb-4">
+                            <h3 className="text-sm font-bold flex-1">Executive Report</h3>
+                            <button
+                                onClick={async () => {
+                                    const html2pdf = (await import("html2pdf.js" as any)).default;
+                                    const el = document.getElementById("exec-report");
+                                    if (!el) return;
+                                    html2pdf().set({
+                                        margin: 0,
+                                        filename: `cyberfinrisk-report-${Date.now()}.pdf`,
+                                        image: { type: "jpeg", quality: 0.98 },
+                                        html2canvas: { scale: 2, backgroundColor: "#0f1117" },
+                                        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+                                    }).from(el).save();
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 text-white"
+                                style={{ background: "#1e2230", border: "1px solid var(--border)" }}
+                            >
+                                <Download size={13} /> Download PDF
+                            </button>
+                            {user?.email && (
+                                <button
+                                    onClick={async () => {
+                                        try {
+                                            await api.sendReport({
+                                                to_email: user.email!,
+                                                company_name: results.results[0]?.file?.split("\\")[0] || "Your Project",
+                                                executive_summary: results.executive_summary,
+                                                total_expected_loss: results.total_expected_loss,
+                                                total_fix_cost: results.total_fix_cost,
+                                                vulnerability_count: results.vulnerability_count,
+                                                top_risks: [...results.results].sort((a, b) => b.expected_loss - a.expected_loss).slice(0, 5),
+                                                attack_chains: results.attack_chains,
+                                            });
+                                            alert(`Report emailed to ${user.email}`);
+                                        } catch (e: any) {
+                                            alert("Failed to send email: " + e.message);
+                                        }
+                                    }}
+                                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 text-white"
+                                    style={{ background: "var(--accent)", border: "1px solid var(--accent)" }}
+                                >
+                                    <Mail size={13} /> Email Report
+                                </button>
+                            )}
                         </div>
-                    )}
+                        <ExecReport
+                            results={results}
+                            companyName={activeOrg?.name || "Your Project"}
+                            repoUrl={typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("repo") || undefined : undefined}
+                            scanDate={new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                        />
+                    </div>
 
                     <button
                         onClick={reset}
