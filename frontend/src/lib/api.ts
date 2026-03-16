@@ -1,4 +1,4 @@
-import { ScanResults, CompanyContext, VulnInput, Project, ProjectDetail } from "./types";
+import { ScanResults, CompanyContext, VulnInput, Project, ProjectDetail, PresetContext } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -29,6 +29,10 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
 export const api = {
     async health(): Promise<{ status: string; version: string }> {
         return fetchAPI("/health");
+    },
+
+    async demoPresets(): Promise<PresetContext[]> {
+        return fetchAPI("/demo-presets");
     },
 
     async analyzeManual(payload: {
@@ -187,5 +191,16 @@ export const api = {
         if (group_id) endpoint += `&group_id=${group_id}`;
         if (user_uuid) endpoint += `&user_uuid=${user_uuid}`;
         return fetchAPI(endpoint, { method: "POST" });
+    },
+
+    // ── Dashboard Metrics ────────────────────────────────────────────────────
+
+    async getDashboardMetrics(org_id?: string, group_id?: string): Promise<any> {
+        let endpoint = "/api/dashboard/metrics";
+        const params: string[] = [];
+        if (org_id) params.push(`org_id=${org_id}`);
+        if (group_id) params.push(`group_id=${group_id}`);
+        if (params.length) endpoint += `?${params.join("&")}`;
+        return fetchAPI(endpoint);
     },
 };

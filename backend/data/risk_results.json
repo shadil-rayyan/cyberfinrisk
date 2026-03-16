@@ -1,57 +1,103 @@
 {
   "results": [
     {
-      "vulnerability_id": "VULN_001",
-      "bug_type": "HARDCODED_CREDENTIALS",
-      "file": "Makefile",
-      "line": 83,
-      "severity": "error",
-      "exposure": "PUBLIC",
-      "probability_of_exploit": 0.25,
+      "vulnerability_id": "VULN_002",
+      "bug_type": "WEAK_CRYPTO",
+      "file": "\\erpnext\\erpnext_integrations\\doctype\\amazon_mws_settings\\amazon_mws_api.py",
+      "line": 65,
+      "severity": "warning",
+      "exposure": "INTERNAL",
+      "probability_of_exploit": 0.03,
       "gemini_analysis": null,
-      "effective_probability": 0.25,
+      "effective_probability": 0.03,
       "impact_breakdown": {
-        "data_breach_cost": 8650000000000.0,
-        "incident_response_cost": 30000.0,
-        "downtime_cost": 32000.0,
-        "regulatory_penalty": 124000.0,
-        "reputation_damage": 62640.0
+        "data_breach_cost": 750000000.0,
+        "incident_response_cost": 100000.0,
+        "downtime_cost": 240000.0,
+        "regulatory_penalty": 2000000.0,
+        "reputation_damage": 4200.0
       },
-      "total_impact": 8650000248640.0,
-      "expected_loss": 2162500062160.0,
-      "fix_effort_hours": 2.0,
-      "fix_cost_usd": 220.0,
-      "priority_score": 1081250031080.0,
-      "roi_of_fixing": 9829545737.1,
-      "business_brief": "=================================================================\n  \ud83d\udd34 CRITICAL BUSINESS RISK\n  Requires decision this week\n  Location: Makefile, line 83\n=================================================================\n\nWHAT IS BROKEN (plain English)\n  Like printing your house keys on your business card.\n  Technical name: Hardcoded Credentials\n  Accessible from: The public internet\n\nHOW A REAL BREACH HAPPENS \u2014 STEP BY STEP\n  Step 1: Our source code contains an API key or password written directly in the code.\n  Step 2: Automated bots scan GitHub, npm, and public repositories constantly for credential patterns. Discovery often happens within hours of exposure.\n  Step 3: Attacker uses the credential to authenticate as us \u2014 with full system permissions.\n  Step 4: They read all data, move money, delete records, or install backdoors. The breach may go undetected for months because they appear as a legitimate user.\n\n  Attacker effort required: extremely low \u2014 bots scan public code repositories 24/7 for exactly this\n  How hard to detect:       very hard \u2014 looks like legitimate access in logs\n  Real-world precedent:     Toyota (2023) \u2014 a hardcoded key in code pushed to GitHub exposed 2.15 million customers' vehicle data for 5 years before discovery.\n\nWHAT THIS COSTS PLAUSIBLE ANALYTICS IF NOT FIXED\n  Data breach cost:                          $6920000.0M \u2013 $10380000.0M\n  Regulatory fines (GDPR/CCPA):              $99,200 \u2013 $148,800\n  Lost customers (estimated churn):          $50,112 \u2013 $75,168\n  Incident response + legal:                 $24,000 \u2013 $36,000\n  System downtime cost:                      $25,600 \u2013 $38,400\n  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  TOTAL POTENTIAL LOSS:                      $6920000.2M \u2013 $10380000.3M\n\n  Probability of exploitation: 25%\n  (Based on industry data for this exposure level)\n\n  EXPECTED LOSS (probability \u00d7 impact): $1730000.0M \u2013 $2595000.1M\n  This is the actuarial cost of carrying this risk unresolved.\n\nWHAT THE FIX COSTS\n  Engineer time:  2.0 hours\n  Salary cost:    $220\n  ROI of fixing:  9829545737\u00d7 \u2014 every $1 spent saves $9829545737 in expected loss.\n\nWHAT THE PRESS WOULD WRITE IF THIS IS EXPLOITED\n  \"Plausible Analytics Suffers Breach After API Keys Found Exposed in Source Code\"\n\nDECISION REQUIRED\n  Fix immediately \u2014 this sprint, not next.\n  \u2192 Approve fix this sprint?   [ YES / NO ]\n  \u2192 Accept risk and delay?     [ YES \u2014 requires written sign-off / NO ]\n=================================================================",
-      "attack_chains": null
+      "total_impact": 752344200.0,
+      "expected_loss": 22570326.0,
+      "fix_effort_hours": 6.0,
+      "fix_cost_usd": 900.0,
+      "priority_score": 3761721.0,
+      "roi_of_fixing": 25078.1,
+      "business_brief": "=================================================================\n  \ud83d\udd34 CRITICAL BUSINESS RISK\n  Requires decision this week\n  Location: \\erpnext\\erpnext_integrations\\doctype\\amazon_mws_settings\\amazon_mws_api.py, line 65\n=================================================================\n\nWHAT IS BROKEN (plain English)\n  Locking a safe with one of the top 1,000 most common combinations.\n  Technical name: Weak Crypto\n  Accessible from: Internal network only\n\nHOW A REAL BREACH HAPPENS \u2014 STEP BY STEP\n  Step 1: Our application uses outdated encryption (MD5, SHA1) to store passwords or sensitive data.\n  Step 2: Attacker breaches our database via another vulnerability or insider threat.\n  Step 3: Despite data being 'encrypted', they crack the weak hashes in hours using commodity hardware and public rainbow tables.\n  Step 4: They now have plaintext passwords which customers reuse across banking, email, and other services.\n\n  Attacker effort required: medium \u00e2\u20ac\u201d GPU cracking is now cheap and fast\n  How hard to detect:       only discovered after a breach\n  Real-world precedent:     LinkedIn (2012) \u00e2\u20ac\u201d 6.5M hashes stolen. Because they used unsalted SHA1, 90% were cracked within days and used across the internet.\n\nWHAT THIS COSTS ERPNEXT DEPLOYMENT (MID-SIZE MANUFACTURING COMPANY) IF NOT FIXED\n  Data breach cost:                          $600.0M \u2013 $900.0M\n  Regulatory fines (GDPR):                   $1.6M \u2013 $2.4M\n  Lost customers (estimated churn):          $3,360 \u2013 $5,040\n  Incident response + legal:                 $80,000 \u2013 $120,000\n  System downtime cost:                      $192,000 \u2013 $288,000\n  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  TOTAL POTENTIAL LOSS:                      $601.9M \u2013 $902.8M\n\n  Probability of exploitation: 3%\n  (Based on industry data for this exposure level)\n\n  EXPECTED LOSS (probability \u00d7 impact): $18.1M \u2013 $27.1M\n  This is the actuarial cost of carrying this risk unresolved.\n\nWHAT THE FIX COSTS\n  Engineer time:  6.0 hours\n  Salary cost:    $900\n  ROI of fixing:  25078\u00d7 \u2014 every $1 spent saves $25078 in expected loss.\n\nWHAT THE PRESS WOULD WRITE IF THIS IS EXPLOITED\n  \"ERPNext Deployment (Mid-Size Manufacturing Company) Breach Worse Than Expected \u00e2\u20ac\u201d Customer Passwords Cracked Due to Weak Encryption\"\n\nDECISION REQUIRED\n  Fix immediately \u2014 this sprint, not next.\n  \u2192 Approve fix this sprint?   [ YES / NO ]\n  \u2192 Accept risk and delay?     [ YES \u2014 requires written sign-off / NO ]\n=================================================================",
+      "attack_chains": [
+        "CHAIN_001"
+      ]
     },
     {
-      "vulnerability_id": "VULN_002",
-      "bug_type": "SQL_INJECTION",
-      "file": "tracker/compiler/analyze-sizes.js (lines 294, 295, 314)",
-      "line": 294,
+      "vulnerability_id": "VULN_001",
+      "bug_type": "XXE",
+      "file": "\\erpnext\\accounts\\doctype\\account\\chart_of_accounts\\import_from_openerp.py (lines 60, 69)",
+      "line": 60,
       "severity": "error",
-      "exposure": "PUBLIC",
-      "probability_of_exploit": 0.22,
+      "exposure": "INTERNAL",
+      "probability_of_exploit": 0.02,
       "gemini_analysis": null,
-      "effective_probability": 0.22,
+      "effective_probability": 0.02,
       "impact_breakdown": {
-        "data_breach_cost": 8650000000000.0,
-        "incident_response_cost": 30000.0,
-        "downtime_cost": 32000.0,
-        "regulatory_penalty": 124000.0,
-        "reputation_damage": 62640.0
+        "data_breach_cost": 0.0,
+        "incident_response_cost": 100000.0,
+        "downtime_cost": 240000.0,
+        "regulatory_penalty": 2000000.0,
+        "reputation_damage": 4200.0
       },
-      "total_impact": 8650000248640.0,
-      "expected_loss": 1903000054700.8,
-      "fix_effort_hours": 6.0,
-      "fix_cost_usd": 660.0,
-      "priority_score": 317166675783.47,
-      "roi_of_fixing": 2883333416.2,
-      "business_brief": "=================================================================\n  \ud83d\udd34 CRITICAL BUSINESS RISK\n  Requires decision this week\n  Location: tracker/compiler/analyze-sizes.js (lines 294, 295, 314), line 294\n=================================================================\n\nWHAT IS BROKEN (plain English)\n  Like leaving your filing cabinet unlocked in a public lobby. Anyone walking past can take everything inside.\n  Technical name: Sql Injection\n  Accessible from: The public internet\n\nHOW A REAL BREACH HAPPENS \u2014 STEP BY STEP\n  Step 1: Attacker discovers our payment API using automated scanning tools (Shodan, Google dorks). Thousands of APIs are scanned this way every day.\n  Step 2: They send a crafted request that tricks our database into returning all records instead of just one. No password required. A free tool does this automatically.\n  Step 3: In minutes, they download all 173,000,000,000 customer records including aggregated analytics data and site traffic metrics.\n  Step 4: We do not know this happened. They sell the data on dark web markets, use it for fraud, or contact us with a ransom demand.\n\n  Attacker effort required: low \u2014 automated tools find and exploit this in under an hour\n  How hard to detect:       hard \u2014 SQL injection attacks leave no obvious trace in standard logs\n  Real-world precedent:     Heartland Payment Systems \u2014 SQL injection through a single web form stole 130 million credit card numbers. $140M in settlements. Stock dropped 77%.\n\nWHAT THIS COSTS PLAUSIBLE ANALYTICS IF NOT FIXED\n  Data breach cost:                          $6920000.0M \u2013 $10380000.0M\n  Regulatory fines (GDPR/CCPA):              $99,200 \u2013 $148,800\n  Lost customers (estimated churn):          $50,112 \u2013 $75,168\n  Incident response + legal:                 $24,000 \u2013 $36,000\n  System downtime cost:                      $25,600 \u2013 $38,400\n  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  TOTAL POTENTIAL LOSS:                      $6920000.2M \u2013 $10380000.3M\n\n  Probability of exploitation: 22%\n  (Based on industry data for this exposure level)\n\n  EXPECTED LOSS (probability \u00d7 impact): $1522400.0M \u2013 $2283600.1M\n  This is the actuarial cost of carrying this risk unresolved.\n\nWHAT THE FIX COSTS\n  Engineer time:  6.0 hours\n  Salary cost:    $660\n  ROI of fixing:  2883333416\u00d7 \u2014 every $1 spent saves $2883333416 in expected loss.\n\nWHAT THE PRESS WOULD WRITE IF THIS IS EXPLOITED\n  \"Plausible Analytics Exposes 173,000,000,000 Customer Records in SQL Injection Attack\"\n\nDECISION REQUIRED\n  Fix immediately \u2014 this sprint, not next.\n  \u2192 Approve fix this sprint?   [ YES / NO ]\n  \u2192 Accept risk and delay?     [ YES \u2014 requires written sign-off / NO ]\n=================================================================",
+      "total_impact": 2344200.0,
+      "expected_loss": 75014.40000000001,
+      "fix_effort_hours": 4.0,
+      "fix_cost_usd": 600.0,
+      "priority_score": 18753.6,
+      "roi_of_fixing": 125.0,
+      "business_brief": "=================================================================\n  \ud83d\udfe0 HIGH BUSINESS RISK\n  Requires decision this sprint\n  Location: \\erpnext\\accounts\\doctype\\account\\chart_of_accounts\\import_from_openerp.py (lines 60, 69), line 60\n=================================================================\n\nWHAT IS BROKEN (plain English)\n  An unlabelled container in your server room \u00e2\u20ac\u201d could be harmless, could be dangerous. Needs inspection.\n  Technical name: Xxe\n  Accessible from: Internal network only\n\nHOW A REAL BREACH HAPPENS \u2014 STEP BY STEP\n  Step 1: A security issue was detected in the codebase that does not match known patterns.\n  Step 2: Manual review by a security engineer is required to assess actual risk.\n  Step 3: Until assessed, this should be treated as a potential vulnerability.\n  Step 4: Delay in review increases window of exposure if the issue is legitimate.\n\n  Attacker effort required: unknown \u00e2\u20ac\u201d requires manual assessment\n  How hard to detect:       unknown\n  Real-world precedent:     Unknown security issues are the ones most likely to become breaches \u00e2\u20ac\u201d because nobody looked closely enough.\n\nWHAT THIS COSTS ERPNEXT DEPLOYMENT (MID-SIZE MANUFACTURING COMPANY) IF NOT FIXED\n  Regulatory fines (GDPR):                   $1.6M \u2013 $2.4M\n  Lost customers (estimated churn):          $3,360 \u2013 $5,040\n  Incident response + legal:                 $80,000 \u2013 $120,000\n  System downtime cost:                      $192,000 \u2013 $288,000\n  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  TOTAL POTENTIAL LOSS:                      $1.9M \u2013 $2.8M\n\n  Probability of exploitation: 2%\n  (Based on industry data for this exposure level)\n\n  EXPECTED LOSS (probability \u00d7 impact): $60,012 \u2013 $90,017\n  This is the actuarial cost of carrying this risk unresolved.\n\nWHAT THE FIX COSTS\n  Engineer time:  4.0 hours\n  Salary cost:    $600\n  ROI of fixing:  125\u00d7 \u2014 every $1 spent saves $125 in expected loss.\n\nWHAT THE PRESS WOULD WRITE IF THIS IS EXPLOITED\n  \"ERPNext Deployment (Mid-Size Manufacturing Company) Security Review Reveals Unassessed Vulnerabilities\"\n\nDECISION REQUIRED\n  Fix this sprint. Do not defer to backlog.\n  \u2192 Approve fix this sprint?   [ YES / NO ]\n  \u2192 Accept risk and delay?     [ YES \u2014 requires written sign-off / NO ]\n=================================================================",
+      "attack_chains": [
+        "CHAIN_001"
+      ]
+    },
+    {
+      "vulnerability_id": "VULN_003",
+      "bug_type": "UNKNOWN",
+      "file": "\\erpnext\\setup\\page\\welcome_to_erpnext\\welcome_to_erpnext.js",
+      "line": 16,
+      "severity": "warning",
+      "exposure": "INTERNAL",
+      "probability_of_exploit": 0.02,
+      "gemini_analysis": null,
+      "effective_probability": 0.02,
+      "impact_breakdown": {
+        "data_breach_cost": 0.0,
+        "incident_response_cost": 100000.0,
+        "downtime_cost": 240000.0,
+        "regulatory_penalty": 2000000.0,
+        "reputation_damage": 4200.0
+      },
+      "total_impact": 2344200.0,
+      "expected_loss": 46884.0,
+      "fix_effort_hours": 4.0,
+      "fix_cost_usd": 600.0,
+      "priority_score": 11721.0,
+      "roi_of_fixing": 78.1,
+      "business_brief": "=================================================================\n  \ud83d\udfe0 HIGH BUSINESS RISK\n  Requires decision this sprint\n  Location: \\erpnext\\setup\\page\\welcome_to_erpnext\\welcome_to_erpnext.js, line 16\n=================================================================\n\nWHAT IS BROKEN (plain English)\n  An unlabelled container in your server room \u00e2\u20ac\u201d could be harmless, could be dangerous. Needs inspection.\n  Technical name: Unknown\n  Accessible from: Internal network only\n\nHOW A REAL BREACH HAPPENS \u2014 STEP BY STEP\n  Step 1: A security issue was detected in the codebase that does not match known patterns.\n  Step 2: Manual review by a security engineer is required to assess actual risk.\n  Step 3: Until assessed, this should be treated as a potential vulnerability.\n  Step 4: Delay in review increases window of exposure if the issue is legitimate.\n\n  Attacker effort required: unknown \u00e2\u20ac\u201d requires manual assessment\n  How hard to detect:       unknown\n  Real-world precedent:     Unknown security issues are the ones most likely to become breaches \u00e2\u20ac\u201d because nobody looked closely enough.\n\nWHAT THIS COSTS ERPNEXT DEPLOYMENT (MID-SIZE MANUFACTURING COMPANY) IF NOT FIXED\n  Regulatory fines (GDPR):                   $1.6M \u2013 $2.4M\n  Lost customers (estimated churn):          $3,360 \u2013 $5,040\n  Incident response + legal:                 $80,000 \u2013 $120,000\n  System downtime cost:                      $192,000 \u2013 $288,000\n  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  TOTAL POTENTIAL LOSS:                      $1.9M \u2013 $2.8M\n\n  Probability of exploitation: 2%\n  (Based on industry data for this exposure level)\n\n  EXPECTED LOSS (probability \u00d7 impact): $37,507 \u2013 $56,261\n  This is the actuarial cost of carrying this risk unresolved.\n\nWHAT THE FIX COSTS\n  Engineer time:  4.0 hours\n  Salary cost:    $600\n  ROI of fixing:  78\u00d7 \u2014 every $1 spent saves $78 in expected loss.\n\nWHAT THE PRESS WOULD WRITE IF THIS IS EXPLOITED\n  \"ERPNext Deployment (Mid-Size Manufacturing Company) Security Review Reveals Unassessed Vulnerabilities\"\n\nDECISION REQUIRED\n  Fix this sprint. Do not defer to backlog.\n  \u2192 Approve fix this sprint?   [ YES / NO ]\n  \u2192 Accept risk and delay?     [ YES \u2014 requires written sign-off / NO ]\n=================================================================",
       "attack_chains": null
     }
   ],
-  "chains": []
+  "chains": [
+    {
+      "chain_id": "CHAIN_001",
+      "vulnerability_ids": [
+        "VULN_001",
+        "VULN_002"
+      ],
+      "chain_description": "An attacker could first upload a specially crafted file to the ERP system, allowing them to read sensitive internal configuration files from the server. Among these files, they would find crucial account login information, like the company's Amazon integration credentials, stored insecurely. This would allow them to take control of external business accounts, potentially impacting financial operations.",
+      "combined_severity": "critical",
+      "combined_expected_loss": 45290680.8,
+      "chain_steps": [
+        "Step 1: An attacker exploits the first vulnerability (VULN_001) by importing a malicious data file into the ERP system. This file tricks the system into revealing internal server configuration files, which can contain sensitive information.",
+        "Step 2: Using the access gained, the attacker searches through these revealed files. Due to the second vulnerability (VULN_002), critical account information, such as the company's Amazon integration credentials, is found to be stored in an easily readable format within these files.",
+        "Step 3: The result is the attacker gaining unauthorized access to critical external business platforms, like the company's Amazon seller account, where they could disrupt sales, modify orders, or access sensitive financial transaction data, leading to a full data exfiltration of critical credentials."
+      ]
+    }
+  ]
 }

@@ -192,6 +192,21 @@ def generate_executive_summary(results: list, company: CompanyContext,
     gemini_note = "\n  Note: Probabilities and Impacts have been adjusted by AI analysis of actual code context and data scopes." \
                   if any(r.gemini_analysis for r in results) else ""
 
+    if len(results) == 0:
+        do_nothing = """WHAT HAPPENS IF WE DO NOTHING
+  This scan found no reportable vulnerabilities, so there is no quantified
+  expected loss from known issues in this codebase at this time.
+  Residual risk remains (e.g., new disclosures, misconfiguration, supply-chain
+  changes, and vulnerabilities not covered by this scan). Re-scan on each
+  release and at least weekly.
+"""
+    else:
+        do_nothing = f"""WHAT HAPPENS IF WE DO NOTHING
+  Based on breach rates for {company.industry} {company.system_role.replace('_', ' ')}s our size, at least one
+  of these vulnerabilities is likely to be found and exploited within
+  6–18 months if unaddressed.
+"""
+
     return f"""{'='*65}
   SECURITY RISK EXECUTIVE SUMMARY
   {company.company_name} — Board / Leadership Review
@@ -202,7 +217,7 @@ BOTTOM LINE
   Total exposure if all exploited:              {fmt_range(total_impact)}
   Expected loss (probability-adjusted):         {fmt_range(total_loss)}
   Total cost to fix everything:                 {fmt(total_fix_cost)} ({total_hours:.0f} hours)
-  Fixing yields up to {fmt(roi)}× ROI compared to expected loss.
+  Fixing yields up to {roi}× ROI compared to expected loss.
 {gemini_note}
 
 RISK BREAKDOWN
@@ -212,10 +227,7 @@ RISK BREAKDOWN
 
 TOP 3 RISKS BY FINANCIAL EXPOSURE
 {top3}{chain_block}
-WHAT HAPPENS IF WE DO NOTHING
-  Based on breach rates for {company.industry} {company.system_role.replace('_', ' ')}s our size, at least one
-  of these vulnerabilities is likely to be found and exploited within
-  6–18 months if unaddressed.
+{do_nothing}
 
 WHAT WE ARE ASKING FOR
   Approval to allocate {total_hours:.0f} engineering hours to address

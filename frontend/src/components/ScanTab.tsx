@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
-import type { CompanyContext } from "@/lib/types";
+import { useEffect, useRef, useState } from "react";
+import type { CompanyContext, PresetContext } from "@/lib/types";
+import { api } from "@/lib/api";
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
 
@@ -185,6 +186,8 @@ export default function ScanTab({ onScan, error, loading }: ScanTabProps) {
     const [geminiKey, setGeminiKey] = useState("");
     const [jsonImport, setJsonImport] = useState("");
     const [importSuccess, setImportSuccess] = useState(false);
+    const [presets, setPresets] = useState<PresetContext[]>([]);
+    const [selectedPresetId, setSelectedPresetId] = useState<string>("");
 
     // native element refs
     const companyName = useRef<HTMLInputElement>(null);
@@ -203,6 +206,22 @@ export default function ScanTab({ onScan, error, loading }: ScanTabProps) {
     const stackDesc = useRef<HTMLTextAreaElement>(null);
     const repoUrl = useRef<HTMLInputElement>(null);
     const branch = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        api.demoPresets()
+            .then((data) => {
+                if (!cancelled) {
+                    setPresets(data);
+                }
+            })
+            .catch(() => {
+                // best-effort: ignore errors and leave presets empty
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     function getCompany(): CompanyContext {
         return {
@@ -226,32 +245,61 @@ export default function ScanTab({ onScan, error, loading }: ScanTabProps) {
         };
     }
 
+    function applyCompanyToForm(data: any) {
+        if (companyName.current && data.company_name) companyName.current.value = data.company_name;
+        if (industry.current && data.industry) industry.current.value = data.industry;
+        if (companySize.current && data.company_size) companySize.current.value = data.company_size;
+        if (systemRole.current && data.system_role) systemRole.current.value = data.system_role;
+        if (annualRevenue.current && data.annual_revenue) annualRevenue.current.value = String(data.annual_revenue);
+        if (monthlyRevenue.current && data.monthly_revenue) monthlyRevenue.current.value = String(data.monthly_revenue);
+        if (activeUsers.current) activeUsers.current.value = String(data.active_users || data.active_customers || 0);
+        if (arpu.current && data.arpu) arpu.current.value = String(data.arpu);
+        if (engineerCost.current && data.engineer_hourly_cost) engineerCost.current.value = String(data.engineer_hourly_cost);
+        if (records.current && data.estimated_records_stored) records.current.value = String(data.estimated_records_stored);
+        if (downtimeCost.current && data.estimated_downtime_cost_per_hour) downtimeCost.current.value = String(data.estimated_downtime_cost_per_hour);
+        if (productDesc.current && data.product_description) productDesc.current.value = data.product_description;
+        if (stackDesc.current && data.stack_description) stackDesc.current.value = data.stack_description;
+        if (data.deployment_exposure && exposure.current) {
+            const exp = (data.deployment_exposure as string).toLowerCase();
+            exposure.current.value = exp.includes("public") ? "public" : exp.includes("internal") ? "internal" : "private";
+        }
+        if (data.sensitive_data_types) setDataTypes(data.sensitive_data_types);
+        if (data.regulatory_frameworks) setRegulations(data.regulatory_frameworks);
+    }
+
     function importJSON() {
         try {
             const data = JSON.parse(jsonImport);
-            if (companyName.current && data.company_name) companyName.current.value = data.company_name;
-            if (industry.current && data.industry) industry.current.value = data.industry;
-            if (companySize.current && data.company_size) companySize.current.value = data.company_size;
-            if (systemRole.current && data.system_role) systemRole.current.value = data.system_role;
-            if (annualRevenue.current && data.annual_revenue) annualRevenue.current.value = data.annual_revenue;
-            if (monthlyRevenue.current && data.monthly_revenue) monthlyRevenue.current.value = data.monthly_revenue;
-            if (activeUsers.current) activeUsers.current.value = String(data.active_users || data.active_customers || 0);
-            if (arpu.current && data.arpu) arpu.current.value = data.arpu;
-            if (engineerCost.current && data.engineer_hourly_cost) engineerCost.current.value = data.engineer_hourly_cost;
-            if (records.current && data.estimated_records_stored) records.current.value = data.estimated_records_stored;
-            if (downtimeCost.current && data.estimated_downtime_cost_per_hour) downtimeCost.current.value = data.estimated_downtime_cost_per_hour;
-            if (productDesc.current && data.product_description) productDesc.current.value = data.product_description;
-            if (stackDesc.current && data.stack_description) stackDesc.current.value = data.stack_description;
-            if (data.deployment_exposure && exposure.current) {
-                const exp = (data.deployment_exposure as string).toLowerCase();
-                exposure.current.value = exp.includes("public") ? "public" : exp.includes("internal") ? "internal" : "private";
-            }
-            if (data.sensitive_data_types) setDataTypes(data.sensitive_data_types);
-            if (data.regulatory_frameworks) setRegulations(data.regulatory_frameworks);
+            applyCompanyToForm(data);
             setImportSuccess(true);
             setTimeout(() => setImportSuccess(false), 3000);
         } catch {
             alert("Invalid JSON format. Please check your input.");
+        }
+    }
+
+    function handlePresetSelect(presetId: string) {
+        setSelectedPresetId(presetId);
+        const preset = presets.find((p) => p.id === presetId);
+        if (!preset) return;
+
+        // Apply company context into the form
+        applyCompanyToForm(preset.company);
+
+        // Also populate the JSON textarea so the user can see/edit it
+        try {
+            const pretty = JSON.stringify(preset.company, null, 2);
+            setJsonImport(pretty);
+        } catch {
+            // ignore stringify errors, still keep form filled
+        }
+
+        // Pre-fill repo URL and branch
+        if (repoUrl.current && preset.repo_url) {
+            repoUrl.current.value = preset.repo_url;
+        }
+        if (branch.current && preset.branch) {
+            branch.current.value = preset.branch;
         }
     }
 
@@ -268,8 +316,27 @@ export default function ScanTab({ onScan, error, loading }: ScanTabProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* ── LEFT COLUMN ── */}
             <div>
-                {/* JSON Import */}
+                {/* Presets + JSON Import */}
                 <Card title="Quick JSON Import">
+                    {presets.length > 0 && (
+                        <div className="mb-4">
+                            <FL>Load Sample Profile</FL>
+                            <select
+                                value={selectedPresetId}
+                                onChange={(e) => handlePresetSelect(e.target.value)}
+                                className={inputCls}
+                                style={fieldStyle}
+                                {...focusHandlers}
+                            >
+                                <option value="">Select a sample (Spree, ERPNext, ...)</option>
+                                {presets.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                     <FL>Paste Company JSON</FL>
                     <textarea
                         id="company_json_paste"
