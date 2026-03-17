@@ -14,7 +14,8 @@ import {
     Loader2,
     RefreshCw,
     ChevronDown,
-    X
+    X,
+    Pencil
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import TopBar from "@/components/dashboard/TopBar";
@@ -75,31 +76,31 @@ function MarkdownFix({ content, className = "" }: { content: string, className?:
                 // Handle bold/italics/headers/lists very simply for this specific context
                 const lines = part.split("\n").filter(l => l.trim() !== "");
                 return (
-                    <div key={i} className="space-y-2">
+                    <div key={i} className="space-y-4">
                         {lines.map((line, li) => {
+                            // Headers
+                            if (line.startsWith("# ")) return <h1 key={li} className="text-2xl font-black text-white mt-6 mb-2">{line.replace("# ", "")}</h1>;
+                            if (line.startsWith("## ")) return <h2 key={li} className="text-xl font-bold text-white mt-5 mb-1">{line.replace("## ", "")}</h2>;
                             if (line.startsWith("### ")) return <h3 key={li} className="text-lg font-bold text-white mt-4">{line.replace("### ", "")}</h3>;
                             if (line.startsWith("#### ")) return <h4 key={li} className="text-sm font-bold text-zinc-200 mt-2 uppercase tracking-wider">{line.replace("#### ", "")}</h4>;
-                            if (line.startsWith("> ")) return <blockquote key={li} className="border-l-2 border-zinc-700 pl-4 py-1 italic text-zinc-400 text-sm">{line.replace("> ", "").replace(/"/g, "")}</blockquote>;
-                            if (line.startsWith("- ")) return <li key={li} className="text-sm text-zinc-300 ml-4 list-disc">{line.replace("- ", "")}</li>;
                             
-                            // Simple bolding
-                            const boldPart = line.match(/\*\*(.*?)\*\*/);
-                            if (boldPart) {
-                                return (
-                                    <p key={li} className="text-sm text-zinc-300 leading-relaxed">
-                                        {line.split(/\*\*.*?\*\*/).map((text, ti, arr) => (
-                                            <React.Fragment key={ti}>
-                                                {text}
-                                                {ti < arr.length - 1 && <strong className="text-white font-bold">{boldPart[1]}</strong>}
-                                            </React.Fragment>
-                                        ))}
-                                    </p>
-                                );
-                            }
-
+                            // Blockquotes
+                            if (line.startsWith("> ")) return <blockquote key={li} className="border-l-2 border-[var(--accent)] pl-4 py-2 italic text-zinc-400 text-sm bg-zinc-900/50 rounded-r-lg">{line.replace("> ", "").replace(/"/g, "")}</blockquote>;
+                            
+                            // Lists
+                            if (line.startsWith("- ")) return <li key={li} className="text-sm text-zinc-300 ml-4 list-disc marker:text-[var(--accent)]">{line.replace("- ", "")}</li>;
+                            
+                            // Mixed Text (Bolding)
+                            // This splits the line by ** as a delimiter and alternates between normal text and bold text
+                            const segments = line.split(/(\*\*.*?\*\*)/);
                             return (
                                 <p key={li} className="text-sm text-zinc-300 leading-relaxed">
-                                    {line}
+                                    {segments.map((seg, si) => {
+                                        if (seg.startsWith("**") && seg.endsWith("**")) {
+                                            return <strong key={si} className="text-white font-bold">{seg.slice(2, -2)}</strong>;
+                                        }
+                                        return seg;
+                                    })}
                                 </p>
                             );
                         })}
@@ -121,6 +122,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     const [isReportOpen, setIsReportOpen] = useState(false);
     const [scanning, setScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState({ message: "", percent: 0 });
+    const [isContextModalOpen, setIsContextModalOpen] = useState(false);
 
     const fetchProject = async () => {
         try {
@@ -137,6 +139,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     useEffect(() => {
         fetchProject();
     }, [id]);
+
+    const handleUpdateContext = async (company: any) => {
+        try {
+            const updated = await api.updateProjectContext(id, company);
+            setDetail(updated);
+            setIsContextModalOpen(false);
+        } catch (err: any) {
+            console.error("Failed to update context:", err);
+            alert("Failed to update context: " + err.message);
+        }
+    };
 
     const handleRescan = async () => {
         if (!detail) return;
@@ -446,9 +459,18 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
                             {/* Risk Overview Table */}
                             <div className="bg-[#15171a] rounded-2xl p-6 border border-zinc-800 shadow-xl">
-                                <h4 className="text-[11px] font-black uppercase tracking-widest text-zinc-500 mb-6 flex items-center gap-2">
-                                    <History size={14} className="text-zinc-600" /> 
-                                    Internal Risk Context
+                                <h4 className="text-[11px] font-black uppercase tracking-widest text-zinc-500 mb-6 flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <History size={14} className="text-zinc-600" /> 
+                                        Internal Risk Context
+                                    </div>
+                                    <button 
+                                        onClick={() => setIsContextModalOpen(true)}
+                                        className="p-1.5 rounded hover:bg-zinc-800 text-zinc-600 hover:text-white transition-colors"
+                                        title="Edit Context"
+                                    >
+                                        <Pencil size={12} />
+                                    </button>
                                 </h4>
                                 <div className="space-y-4">
                                     <RiskRow label="Organization" value={(detail.company as any).company_name} />
@@ -597,6 +619,96 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     </div>
                 </div>
             )}
+
+            {/* Company Context Edit Modal */}
+            <CompanyContextModal 
+                isOpen={isContextModalOpen}
+                onClose={() => setIsContextModalOpen(false)}
+                currentContext={detail.company}
+                onSave={handleUpdateContext}
+            />
+        </div>
+    );
+}
+
+function CompanyContextModal({ 
+    isOpen, 
+    onClose, 
+    currentContext, 
+    onSave 
+}: { 
+    isOpen: boolean, 
+    onClose: () => void, 
+    currentContext: any, 
+    onSave: (ctx: any) => void 
+}) {
+    const [ctx, setCtx] = useState(currentContext);
+
+    useEffect(() => {
+        if (isOpen) setCtx(currentContext);
+    }, [isOpen, currentContext]);
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
+            <div className="bg-[#15171a] w-full max-w-lg rounded-2xl border border-zinc-800 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left">
+                <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+                    <h3 className="font-bold text-white">Edit Company Context</h3>
+                    <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors">
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div>
+                        <label className="text-[10px] font-bold text-zinc-500 uppercase mb-1.5 block">Organization Name</label>
+                        <input 
+                            type="text" 
+                            value={ctx.company_name} 
+                            onChange={e => setCtx({...ctx, company_name: e.target.value})}
+                            className="w-full bg-[#0d0f11] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-[var(--accent)] outline-none transition-colors"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-bold text-zinc-500 uppercase mb-1.5 block">Industry</label>
+                        <input 
+                            type="text" 
+                            value={ctx.industry} 
+                            onChange={e => setCtx({...ctx, industry: e.target.value})}
+                            className="w-full bg-[#0d0f11] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-[var(--accent)] outline-none transition-colors"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-bold text-zinc-500 uppercase mb-1.5 block">Deployment Exposure</label>
+                        <select 
+                            value={ctx.deployment_exposure} 
+                            onChange={e => setCtx({...ctx, deployment_exposure: e.target.value})}
+                            className="w-full bg-[#0d0f11] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-[var(--accent)] outline-none transition-colors"
+                        >
+                            <option value="public">Public (Internet Facing)</option>
+                            <option value="internal">Internal (Private Network)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-bold text-zinc-500 uppercase mb-1.5 block">Sensitive Data Types (Comma Separated)</label>
+                        <input 
+                            type="text" 
+                            value={(ctx.sensitive_data_types || []).join(", ")} 
+                            onChange={e => setCtx({...ctx, sensitive_data_types: e.target.value.split(",").map(s => s.trim()).filter(s => s !== "")})}
+                            className="w-full bg-[#0d0f11] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:border-[var(--accent)] outline-none transition-colors"
+                        />
+                    </div>
+                </div>
+                <div className="px-6 py-4 border-t border-zinc-800 flex justify-end gap-3">
+                    <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-zinc-400 hover:text-white transition-colors">Cancel</button>
+                    <button 
+                        onClick={() => onSave(ctx)}
+                        className="px-6 py-2 rounded-lg bg-[var(--accent)] text-white font-bold text-sm shadow-lg shadow-red-500/20 active:scale-95 transition-all outline-none"
+                    >
+                        Save Context
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

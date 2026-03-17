@@ -116,10 +116,13 @@ HOW TO FIX IT
     # AI status note
     quota_note = ""
     if not result.gemini_analysis:
-        quota_note = "\n> [!NOTE]\n> AI analysis limit reached or unavailable — showing standard results.\n"
+        quota_note = "\n> [!NOTE]\n> AI analysis limit reached and no local fallback available — showing standard results.\n"
+    elif result.gemini_analysis.is_local:
+        quota_note = "\n> [!IMPORTANT]\n> Gemini quota reached — Results analyzed via local AI (Ollama).\n"
 
     return f"""### {urgency['label']}
 {urgency['subtitle']}
+{quota_note}
 {quota_note}
 
 **Location**: `{result.file}`, line {result.line}
@@ -248,6 +251,6 @@ We have **{len(results)}** distinct grouped security vulnerabilities.
 {do_nothing}
 
 ## WHAT WE ARE ASKING FOR
-Approval to allocate **{total_hours:.0f} engineering hours** to address the **{len(critical)} critical** and **{len(high)} high-priority** vulnerabilities.
+Approval to allocate **{total_hours:.0f} engineering hours** to address these findings. Priority should be given to the **{len(high) + len(critical)}** most significant risks identified.
 
 **Estimated cost**: {fmt(total_fix_cost)}""".strip()

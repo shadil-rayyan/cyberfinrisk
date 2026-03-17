@@ -19,6 +19,7 @@ class GeminiAnalysis(BaseModel):
     false_positive_likelihood: str       # "high", "medium", "low"
     recommended_fix: str                 # actual fix code or instructions
     fix_complexity: str                  # "simple", "moderate", "complex"
+    is_local: bool = False               # True if analyzed via local AI fallback
 
 class AttackChain(BaseModel):
     chain_id: str

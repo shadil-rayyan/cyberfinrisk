@@ -144,6 +144,10 @@ class PresetContext(BaseModel):
     company: CompanyContext
 
 
+class CompanyContextUpdate(BaseModel):
+    company: CompanyContext
+
+
 def run_risk_engine(
     findings: list,
     company: CompanyContext,
@@ -199,7 +203,9 @@ def run_risk_engine(
     def _analyze_one(args):
         """Worker: each thread fires one independent Gemini call."""
         f, bug_type, fix_effort, asset, exposure, baseline_p = args
-        if not (gemini_api_key and f.get("code_context")):
+        # We now allow calling this even if gemini_api_key is missing, 
+        # because analyze_vulnerability handles fallback to Ollama.
+        if not f.get("code_context"):
             return args, None
         result = analyze_vulnerability(
             bug_type=bug_type,
@@ -210,11 +216,14 @@ def run_risk_engine(
             exposure=exposure,
             company=company,
             baseline_probability=baseline_p,
-            asset=asset
+            asset=asset,
+            gemini_api_key=gemini_api_key
         )
         return args, result
 
-    MAX_WORKERS = 10
+    # Using a smaller worker pool (4) to prevent CPU starvation and socket hangs
+    # particularly when falling back to local Ollama.
+    MAX_WORKERS = 4 
     gemini_results_map = {}
     t_gemini = time.time()
 
@@ -1280,6 +1289,27 @@ async def get_project(project_id: str):
         executive_summary=doc.get("executive_summary", ""),
         filtered_count=doc.get("filtered_count", 0),
     )
+
+
+@app.patch("/api/projects/{project_id}/context", response_model=ProjectDetail)
+async def update_project_context(project_id: str, req: CompanyContextUpdate):
+    """Update the company context for a project."""
+    from bson import ObjectId
+    mongo = get_mongo_db()
+    if mongo is None:
+        raise HTTPException(status_code=500, detail="MongoDB not connected")
+
+    try:
+        # Update the company field in the document
+        await mongo["projects"].update_one(
+            {"_id": ObjectId(project_id)},
+            {"$set": {"company": jsonable_encoder(req.company)}}
+        )
+        # Reuse get_project to return the full detail
+        return await get_project(project_id)
+    except Exception as e:
+        if isinstance(e, HTTPException): raise e
+        raise HTTPException(status_code=400, detail=f"Failed to update context: {str(e)}")
 
 
 @app.delete("/api/projects/{project_id}", status_code=204)

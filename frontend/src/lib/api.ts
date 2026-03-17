@@ -232,6 +232,13 @@ export const api = {
         return fetchAPI(`/api/projects/${project_id}`);
     },
 
+    async updateProjectContext(project_id: string, company: CompanyContext): Promise<ProjectDetail> {
+        return fetchAPI(`/api/projects/${project_id}/context`, {
+            method: "PATCH",
+            body: JSON.stringify({ company }),
+        });
+    },
+
     async deleteProject(project_id: string): Promise<void> {
         await fetchAPI(`/api/projects/${project_id}`, { method: "DELETE" });
     },

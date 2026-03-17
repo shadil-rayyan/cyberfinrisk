@@ -1,0 +1,2 @@
+mangaodb mongodb+srv://shadilrayyan1_db_user:ywJqLu3C0wX5nKeU@cluster0.ele5bem.mongodb.net/?appName=Cluster0
+psql 'postgresql://neondb_owner:npg_F3gDz2YpqMOn@ep-orange-band-an52lbam-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require'
